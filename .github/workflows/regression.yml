@@ -15,11 +15,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - name: Use a consistent Node.js version
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: "22"
+          package-manager-cache: false
       - name: Check JavaScript syntax and manifest
         run: |
           node --check background.js
