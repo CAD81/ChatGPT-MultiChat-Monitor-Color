@@ -30,7 +30,12 @@ function environment(withRuntime = true) {
         tagName: tag.toUpperCase(),
         parentNode: null,
         setAttribute(name, value) { attrs[name] = value; },
-        getAttribute(name) { return attrs[name] ?? null; }
+        getAttribute(name) { return attrs[name] ?? null; },
+        remove() {
+          const index = nodes.indexOf(this);
+          if (index !== -1) nodes.splice(index, 1);
+          this.parentNode = null;
+        }
       };
     },
     getElementById(id) { return nodes.find((n) => n.id === id) || null; },
@@ -88,16 +93,17 @@ test("existing ChatGPT icon remains intact and late site icons do not override t
   existing.setAttribute("href", "https://chatgpt.com/favicon.ico");
   head.appendChild(existing);
   api.apply("finished");
-  const custom = nodes[1];
+  const originalStatusIcon = nodes[1];
   assert.equal(existing.getAttribute("href"), "https://chatgpt.com/favicon.ico");
   const lateSiteIcon = document.createElement("link");
   lateSiteIcon.rel = "icon";
   lateSiteIcon.setAttribute("href", "https://chatgpt.com/newfavicon.ico");
   head.appendChild(lateSiteIcon);
   api.apply("error");
-  assert.equal(nodes[nodes.length - 1], custom);
-  assert.match(custom.getAttribute("href"), /\/error\.svg$/);
-  assert.equal(nodes.length, 3);
+  const newStatusIcon = nodes[nodes.length - 1];
+  assert.notEqual(newStatusIcon, originalStatusIcon, "a changed state gets a new favicon link");
+  assert.match(newStatusIcon.getAttribute("href"), /\/error\.svg$/);
+  assert.equal(nodes.length, 3, "original site icons are kept, old status icon removed");
 });
 
 test("missing extension runtime does not throw or modify the site", () => {
@@ -108,7 +114,7 @@ test("missing extension runtime does not throw or modify the site", () => {
 
 test("manifest injects status module before monitor and exposes only status icons on ChatGPT", () => {
   assert.deepEqual(manifest.content_scripts[0].js, ["tab-status.js", "content.js"]);
-  assert.equal(manifest.version, "0.4.3");
+  assert.equal(manifest.version, "0.4.4");
   const assets = manifest.web_accessible_resources;
   assert.equal(assets.length, 1);
   assert.deepEqual(assets[0].resources, ["assets/tab-status/*.svg"]);
@@ -140,4 +146,66 @@ test("Vivaldi CSS provides a distinct tab color for each packaged state", () => 
 test("re-injection also loads the icon module before the monitor on existing tabs", () => {
   const background = fs.readFileSync(path.join(root, "background.js"), "utf8");
   assert.ok(background.includes('files: ["tab-status.js", "content.js"]'));
+});
+
+
+test("status change replaces favicon element once, then remains stable", () => {
+  const { api, document, nodes } = environment();
+  api.apply("idle");
+  const idleIcon = document.getElementById("chatgpt-multichat-monitor-color-favicon");
+  api.apply("working");
+  const workingIcon = document.getElementById("chatgpt-multichat-monitor-color-favicon");
+  assert.notEqual(workingIcon, idleIcon, "Chromium gets a fresh icon element on change");
+  assert.equal(nodes.length, 1, "no duplicate favicon links remain");
+  assert.equal(idleIcon.parentNode, null);
+  assert.match(workingIcon.getAttribute("href"), /\/working\.svg$/);
+  api.apply("working");
+  assert.equal(nodes.length, 1);
+  assert.equal(document.getElementById("chatgpt-multichat-monitor-color-favicon"), workingIcon);
+  api.apply("finished");
+  const finishedIcon = document.getElementById("chatgpt-multichat-monitor-color-favicon");
+  assert.notEqual(finishedIcon, workingIcon);
+  assert.equal(nodes.length, 1);
+});
+
+test("late site favicon is deprioritized without replacing an unchanged status icon", () => {
+  const { api, document, head, nodes } = environment();
+  api.apply("working");
+  const statusIcon = nodes[0];
+  const siteIcon = document.createElement("link");
+  siteIcon.rel = "icon";
+  siteIcon.setAttribute("href", "https://chatgpt.com/favicon2.ico");
+  head.appendChild(siteIcon);
+  assert.equal(nodes[nodes.length - 1], siteIcon);
+  api.apply("working");
+  assert.equal(nodes[nodes.length - 1], statusIcon);
+  assert.equal(nodes.length, 2);
+  api.apply("working");
+  assert.equal(nodes.length, 2);
+  assert.equal(document.getElementById("chatgpt-multichat-monitor-color-favicon"), statusIcon);
+});
+
+test("color tab icons use distinct high-contrast circles and distinguishable glyphs", () => {
+  const expectedColors = new Map([
+    ["working", "#EAB308"], ["finished", "#22C55E"], ["attention", "#F97316"],
+    ["error", "#EF4444"], ["retry", "#38BDF8"], ["interrupted", "#D97706"],
+    ["draft", "#A855F7"], ["pending", "#EC4899"], ["idle", "#94A3B8"]
+  ]);
+  const shapes = new Set();
+  const fills = new Set();
+  for (const state of states) {
+    const svg = fs.readFileSync(path.join(root, "assets/tab-status", state + ".svg"), "utf8");
+    assert.match(svg, /viewBox="0 0 16 16"/);
+    assert.match(svg, /<circle cx="8" cy="8" r="7\.1"/);
+    assert.ok(svg.includes('fill="' + expectedColors.get(state) + '"'), state + " fill");
+    assert.ok(svg.includes('aria-label="' + state + '"'), state + " label");
+    assert.match(svg, /<title>[^<]+<\/title>/);
+    assert.doesNotMatch(svg, /<script\b|<foreignObject\b|(?:href|xlink:href)=["']https?:\/\//i);
+    fills.add(expectedColors.get(state));
+    const glyph = svg.split("</circle>").pop();
+    assert.ok(glyph.includes("<path") || glyph.includes("<rect") || glyph.includes("<circle"), state + " glyph");
+    shapes.add(glyph);
+  }
+  assert.equal(fills.size, 9);
+  assert.equal(shapes.size, 9);
 });

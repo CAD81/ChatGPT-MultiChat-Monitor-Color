@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.4.4 - 2026-10-29 (Visible tab status symbols)
+
+- Redesigned all nine per-tab favicons as high-contrast colored circles with distinct state symbols, including an easily recognizable yellow active and green finished icon.
+- Replace only the extension's own favicon link on a state change to make Chromium/Vivaldi refresh the tab icon; preserve ChatGPT's original favicon links and avoid unnecessary DOM mutations when the state is unchanged.
+- Added regression tests for favicon replacement, reordering after ChatGPT SPA favicon updates, and all nine SVG assets.
+- Updated the README with previews of the actual tab icons. No browser UI CSS or conversation-state detection changes.
+
+
 ## 0.4.3 - 2026-10-29 (ChatGPT DOM compatibility)
 
 - Recognize active responses from ChatGPT's newer unlabeled, square Stop icon inside the composer; retain strict scoping to avoid unrelated controls.
