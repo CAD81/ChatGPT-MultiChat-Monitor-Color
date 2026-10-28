@@ -19,7 +19,8 @@ jobs:
         run: |
           node --check background.js
           node --check content.js
+          node --check tab-status.js
           node --check popup.js
           node --check offscreen.js
       - name: Run dependency-free regression harness
-        run: node --test tests/regression.test.mjs
+        run: node --test tests/*.test.mjs

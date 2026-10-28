@@ -2,14 +2,14 @@
   <img src="assets/icons/icon128.png" width="96" alt="ChatGPT MultiChat Monitor icon">
 </p>
 
-<h1 align="center">ChatGPT MultiChat Monitor</h1>
+<h1 align="center">ChatGPT MultiChat Monitor Color</h1>
 
 <p align="center">
   Lightweight floating monitor for active ChatGPT conversations across browser tabs and windows.
 </p>
 
 <p align="center">
-  <strong>Chrome / Edge · Manifest V3 · Local-first · No telemetry</strong>
+  <strong>Vivaldi / Chrome / Edge · Manifest V3 · Local-first · No telemetry</strong>
 </p>
 
 <p align="center">
@@ -20,6 +20,63 @@
     <img src="https://img.shields.io/badge/Apps%20%26%20tools-Browse-6F8F72?style=flat-square" alt="Browse apps and tools">
   </a>
 </p>
+
+## Color fork: ChatGPT tabs at a glance
+
+This fork adds **per-conversation status favicons** in Chromium-based browsers.
+The existing floating multi-chat monitor and its nine-state detection remain
+intact. Each ChatGPT tab is updated independently without reading or sending
+conversation contents, changing tab titles, or reloading a tab.
+
+| State | Tab favicon / optional Vivaldi tab background |
+| --- | --- |
+| Working | Yellow |
+| Done (unread) | Green |
+| Needs attention | Orange |
+| Error | Red |
+| Retry needed | Light blue |
+| Stopped | Amber |
+| Draft | Purple |
+| Pending (manual) | Pink |
+| Idle | Gray |
+
+**Note:** Detection is inherited from the upstream monitor. In particular,
+"Needs attention" is heuristic, and only visible error / quota indicators can
+be classified. A quota error that ChatGPT does not expose to the page cannot be
+reliably detected.
+
+### Installing in Vivaldi
+
+1. Download this fork as a ZIP from GitHub, unpack it, and keep the extracted
+   folder in a permanent location.
+2. Open `vivaldi://extensions`, enable Developer mode and select **Load
+   unpacked**. Choose the folder containing `manifest.json`.
+3. Reload previously open ChatGPT tabs **manually** when convenient; do not
+   reload tabs with unsaved prompts.
+4. The colored favicon status indicators should now work without UI mods.
+
+### Optional: color the *whole tab* in Vivaldi (experimental)
+
+1. Open `vivaldi://experiments` and enable **Allow for using CSS modifications**.
+2. Restart Vivaldi. In **Settings > Appearance > Custom UI Modifications**,
+   select a folder for your custom CSS files.
+3. Copy `vivaldi/chatgpt-multichat-monitor-color.css` into that folder.
+4. Restart Vivaldi and inspect several ChatGPT tabs in different states.
+
+This CSS relies on Vivaldi's *internal* tab DOM exposing the extension favicon
+URL on the `.favicon` element. That is not a stable browser extension API:
+the CSS **may require adjusting for your Vivaldi version**, and a full-tab
+background is not guaranteed until tested in the actual browser. The colored
+favicons are a browser-neutral fallback. The CSS never changes other websites.
+
+### Development / upstream
+
+Original project: [JoelMomo/chatgpt-multichat-monitor](https://github.com/JoelMomo/chatgpt-multichat-monitor).
+Original MIT copyright and license remain intact. This fork maintains its own
+release checks and keeps upstream history so future updates can be reviewed
+and merged deliberately. Run the regression suite with
+`node --test tests/*.test.mjs`. Status icons and CSS are tested for packaging
+and mapping; **visual Vivaldi behavior must be tested in Vivaldi itself**.
 
 ## Preview
 

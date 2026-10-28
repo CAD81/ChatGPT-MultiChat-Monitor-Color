@@ -535,6 +535,7 @@
   }
 
   function sendCurrentState() {
+    globalThis.__chatgptMultiChatColorStatus?.apply(localState.state);
     try {
       chrome.runtime.sendMessage(statePayload()).catch(() => {});
     } catch {}
@@ -586,6 +587,7 @@
   }
 
   function evaluate(options) {
+    globalThis.__chatgptMultiChatColorStatus?.apply(localState.state);
     const opts = options || {};
     const allowFallback = opts.allowFallback === true;
     const urlChanged = location.href !== lastUrl;

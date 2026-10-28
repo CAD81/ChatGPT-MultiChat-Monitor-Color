@@ -21,9 +21,9 @@ const LAYOUT_UNDO_TTL_MS = 10000;
 const GROUP_MODE_DEFAULT = "project";
 const VALID_GROUP_MODES = new Set(["project", "manual", "none"]);
 const RELEASES_API_URL =
-  "https://api.github.com/repos/JoelMomo/chatgpt-multichat-monitor/releases/latest";
+  "https://api.github.com/repos/CAD81/ChatGPT-MultiChat-Monitor-Color/releases/latest";
 const RELEASES_PAGE_URL =
-  "https://github.com/JoelMomo/chatgpt-multichat-monitor/releases";
+  "https://github.com/CAD81/ChatGPT-MultiChat-Monitor-Color/releases";
 
 const SOUND_DEFAULTS = {
   monitorSoundsEnabled: true,

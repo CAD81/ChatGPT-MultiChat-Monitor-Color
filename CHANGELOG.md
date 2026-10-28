@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.4.2 - 2026-10-29 (Color fork)
+
+- Added per-chat status favicons for the existing nine monitor states, without changing the original page title or forcing tab reloads.
+- Added optional Vivaldi CSS for full-tab state backgrounds; the browser-specific CSS requires a Vivaldi UI test.
+- Added regression coverage for icon state mapping, ChatGPT favicon replacement, manifest scope, and CSS packaging.
+- Branded the fork and redirected release checks to this repository while retaining upstream attribution and MIT license.
+
 ## 0.4.1 - 2026-09-25
 
 - Updated Working and Draft detection for the current ChatGPT composer/stop-control DOM: aria-only stop controls such as **Detener la generación** and standalone **Detener** / **Stop** are recognized immediately, and the new textarea name=prompt composer is tracked for Draft.
