@@ -1,0 +1,76 @@
+/* Optional Vivaldi UI CSS mod for ChatGPT MultiChat Monitor Color.
+   Requires the separately installed extension and Vivaldi to expose its
+   per-state favicon URL in the tab's DOM. Browser-version-dependent. */
+
+#tabs-container .tab:has(.favicon[src*="/assets/tab-status/working.svg"]),
+#tabs-container .tab:has(.favicon[style*="/assets/tab-status/working.svg"]),
+#tabs-container .tab:has(.favicon img[src*="/assets/tab-status/working.svg"]) {
+  --gptmm-tab-color: #EAB308;
+}
+
+#tabs-container .tab:has(.favicon[src*="/assets/tab-status/finished.svg"]),
+#tabs-container .tab:has(.favicon[style*="/assets/tab-status/finished.svg"]),
+#tabs-container .tab:has(.favicon img[src*="/assets/tab-status/finished.svg"]) {
+  --gptmm-tab-color: #22C55E;
+}
+
+#tabs-container .tab:has(.favicon[src*="/assets/tab-status/attention.svg"]),
+#tabs-container .tab:has(.favicon[style*="/assets/tab-status/attention.svg"]),
+#tabs-container .tab:has(.favicon img[src*="/assets/tab-status/attention.svg"]) {
+  --gptmm-tab-color: #F97316;
+}
+
+#tabs-container .tab:has(.favicon[src*="/assets/tab-status/error.svg"]),
+#tabs-container .tab:has(.favicon[style*="/assets/tab-status/error.svg"]),
+#tabs-container .tab:has(.favicon img[src*="/assets/tab-status/error.svg"]) {
+  --gptmm-tab-color: #EF4444;
+}
+
+#tabs-container .tab:has(.favicon[src*="/assets/tab-status/retry.svg"]),
+#tabs-container .tab:has(.favicon[style*="/assets/tab-status/retry.svg"]),
+#tabs-container .tab:has(.favicon img[src*="/assets/tab-status/retry.svg"]) {
+  --gptmm-tab-color: #38BDF8;
+}
+
+#tabs-container .tab:has(.favicon[src*="/assets/tab-status/interrupted.svg"]),
+#tabs-container .tab:has(.favicon[style*="/assets/tab-status/interrupted.svg"]),
+#tabs-container .tab:has(.favicon img[src*="/assets/tab-status/interrupted.svg"]) {
+  --gptmm-tab-color: #D97706;
+}
+
+#tabs-container .tab:has(.favicon[src*="/assets/tab-status/draft.svg"]),
+#tabs-container .tab:has(.favicon[style*="/assets/tab-status/draft.svg"]),
+#tabs-container .tab:has(.favicon img[src*="/assets/tab-status/draft.svg"]) {
+  --gptmm-tab-color: #A855F7;
+}
+
+#tabs-container .tab:has(.favicon[src*="/assets/tab-status/pending.svg"]),
+#tabs-container .tab:has(.favicon[style*="/assets/tab-status/pending.svg"]),
+#tabs-container .tab:has(.favicon img[src*="/assets/tab-status/pending.svg"]) {
+  --gptmm-tab-color: #EC4899;
+}
+
+#tabs-container .tab:has(.favicon[src*="/assets/tab-status/idle.svg"]),
+#tabs-container .tab:has(.favicon[style*="/assets/tab-status/idle.svg"]),
+#tabs-container .tab:has(.favicon img[src*="/assets/tab-status/idle.svg"]) {
+  --gptmm-tab-color: #94A3B8;
+}
+
+#tabs-container .tab:has(.favicon[src*="/assets/tab-status/"]),
+#tabs-container .tab:has(.favicon[style*="/assets/tab-status/"]),
+#tabs-container .tab:has(.favicon img[src*="/assets/tab-status/"]) {
+  background-color: var(--gptmm-tab-color) !important;
+}
+
+#tabs-container .tab:has(.favicon[src*="/assets/tab-status/"]) .tab-header,
+#tabs-container .tab:has(.favicon[style*="/assets/tab-status/"]) .tab-header,
+#tabs-container .tab:has(.favicon img[src*="/assets/tab-status/"]) .tab-header {
+  background-color: var(--gptmm-tab-color) !important;
+  color: #111827 !important;
+}
+
+#tabs-container .tab:has(.favicon[src*="/assets/tab-status/"]) .title,
+#tabs-container .tab:has(.favicon[style*="/assets/tab-status/"]) .title,
+#tabs-container .tab:has(.favicon img[src*="/assets/tab-status/"]) .title {
+  color: #111827 !important;
+}

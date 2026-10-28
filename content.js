@@ -39,6 +39,7 @@
 
   let settings = { ...DEFAULTS };
   let chats = [];
+  let tabPending = false;
   let separators = [];
   let finishTimer = null;
   let resetTimer = null;
@@ -413,7 +414,12 @@
     const value = String(text || "").trim().slice(0, 700);
     if (!value) return null;
 
-    if (/(try again|retry|reintentar|vuelve a intentarlo|vuelva a intentarlo|timed out|timeout|time out|se ha agotado el tiempo|delivery timed out|message delivery|network error|connection lost|reconnect|rate limit|too many requests|failed to send)/i.test(value)) {
+    // Explicit quota/usage limits need a conspicuous error, not a routine Retry.
+    if (/(too many requests|you(?:\x27|\u2019)?ve (?:hit|reached) (?:your |the )?(?:usage |message |rate )?limit|(?:usage|message|daily|weekly) limit|limit (?:reached|exceeded)|quota (?:reached|exceeded)|maximum (?:number of |allowed )?(?:messages|requests)|nutzungslimit|nutzungskontingent|kontingent (?:aufgebraucht|erschöpft)|zu viele anfragen)/i.test(value)) {
+      return "error";
+    }
+
+    if (/(try again|retry|reintentar|vuelve a intentarlo|vuelva a intentarlo|timed out|timeout|time out|se ha agotado el tiempo|delivery timed out|message delivery|network error|connection lost|reconnect|rate limit|failed to send)/i.test(value)) {
       return "retry";
     }
 
@@ -534,7 +540,16 @@
     };
   }
 
+  function tabColorState() {
+    return localState.state === "idle" && tabPending ? "pending" : localState.state;
+  }
+
+  function paintTabStatus() {
+    globalThis.__chatgptMultiChatColorStatus?.apply(tabColorState());
+  }
+
   function sendCurrentState() {
+    paintTabStatus();
     try {
       chrome.runtime.sendMessage(statePayload()).catch(() => {});
     } catch {}
@@ -586,6 +601,7 @@
   }
 
   function evaluate(options) {
+    paintTabStatus();
     const opts = options || {};
     const allowFallback = opts.allowFallback === true;
     const urlChanged = location.href !== lastUrl;
@@ -593,6 +609,8 @@
 
     if (urlChanged) {
       lastUrl = location.href;
+      tabPending = false;
+      paintTabStatus();
       projectInfo = {
         conversationId: conversationIdFromHref(location.href),
         known: false,
@@ -2515,6 +2533,8 @@
     if (response && Array.isArray(response.chats)) {
       chats = response.chats;
       separators = Array.isArray(response.separators) ? response.separators : [];
+      tabPending = response.tabPending === true;
+      paintTabStatus();
       render();
     }
   }
@@ -2533,6 +2553,8 @@
     if (message?.type === "monitor-snapshot" && Array.isArray(message.chats)) {
       chats = message.chats;
       separators = Array.isArray(message.separators) ? message.separators : [];
+      tabPending = message.tabPending === true;
+      paintTabStatus();
       render();
       return;
     }

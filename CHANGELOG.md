@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## 0.4.2 - 2026-10-29 (Color fork)
+
+- Made the regression workflow manually runnable, pinned Node.js 22, and added syntax checks for new tests to give the fork reproducible CI.
+
+- Added per-chat status favicons for the existing nine monitor states, without changing the original page title or forcing tab reloads.
+- Added optional Vivaldi CSS for full-tab state backgrounds; the browser-specific CSS requires a Vivaldi UI test.
+- Added regression coverage for icon state mapping, ChatGPT favicon replacement, manifest scope, and CSS packaging.
+- Corrected an SVG regression assertion that rejected the standard SVG namespace.
+- Updated the upstream manifest security regression for the single restricted SVG resource declaration; escaped apostrophes in the quota matcher for compatibility with the upstream test parser.
+- Stabilized Pending regression tests by including the tested tabs in the browser registry fixture.
+- Distinguish visible quota/usage-limit failures as red Error instead of blue Retry; preserve Retry for transient network problems.
+- Respect manual Pending flags from tab-scoped monitor snapshots and reset them on navigation.
+- Branded the fork and redirected release checks to this repository while retaining upstream attribution and MIT license.
+
 ## 0.4.1 - 2026-09-25
 
 - Updated Working and Draft detection for the current ChatGPT composer/stop-control DOM: aria-only stop controls such as **Detener la generación** and standalone **Detener** / **Stop** are recognized immediately, and the new textarea name=prompt composer is tracked for Draft.
