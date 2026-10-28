@@ -911,3 +911,117 @@ test("snapshot delivery includes tab-scoped manual Pending flag", () => {
   assert.match(contentSource, /tabPending = message\.tabPending === true/);
   assert.match(contentSource, /tabPending = response\.tabPending === true/);
 });
+
+
+const MODERN_CHATGPT_STOP_ICON_PATH =
+  "M4.5 5.75C4.5 5.05964 5.05964 4.5 5.75 4.5H14.25C14.9404 4.5 15.5 5.05964 15.5 5.75V14.25C15.5 14.9404 14.9404 15.5 14.25 15.5H5.75C5.05964 15.5 4.5 14.9404 4.5 14.25V5.75Z";
+
+function modernStopFixture({ withinComposer = true, icon = MODERN_CHATGPT_STOP_ICON_PATH, type = "button" } = {}) {
+  return {
+    textContent: "",
+    getAttribute(name) {
+      if (name === "type") return type;
+      return null;
+    },
+    closest(selector) {
+      assert.equal(selector, "form[data-chatgpt-composer]");
+      return withinComposer ? {} : null;
+    },
+    querySelectorAll(selector) {
+      assert.match(selector, /svg/);
+      return [{ getAttribute(name) { return name === "d" ? icon : null; } }];
+    }
+  };
+}
+
+test("unlabelled current ChatGPT composer Stop icon is recognized as Working", () => {
+  const isStopButton = contentFunction("isStopButton");
+  assert.equal(isStopButton(modernStopFixture()), true);
+  assert.equal(isStopButton(modernStopFixture({ withinComposer: false })), false);
+  assert.equal(isStopButton(modernStopFixture({ type: "submit" })), false);
+  assert.equal(isStopButton(modernStopFixture({ icon: "M3 3H13V13H3Z" })), false);
+});
+
+test("fast Working detection includes unlabeled composer controls", () => {
+  const button = modernStopFixture();
+  const isStopButton = contentFunction("isStopButton");
+  const directWorkingSignal = contentFunction("directWorkingSignal", {
+    document: {
+      querySelectorAll(selector) {
+        assert.match(selector, /form\[data-chatgpt-composer\] button\[type="button"\]/);
+        return [button];
+      }
+    },
+    isVisible: () => true,
+    isStopButton
+  });
+  assert.equal(directWorkingSignal(), true);
+});
+
+test("German reply-stop labels are recognized without mistaking media controls", () => {
+  const isStopButton = contentFunction("isStopButton");
+  const labelled = (label) => ({
+    textContent: "",
+    getAttribute(name) { return name === "aria-label" ? label : null; }
+  });
+  assert.equal(isStopButton(labelled("Stopp")), true);
+  assert.equal(isStopButton(labelled("Antwort stoppen")), true);
+  assert.equal(isStopButton(labelled("Generierung abbrechen")), true);
+  assert.equal(isStopButton(labelled("Aufnahme stoppen")), false);
+  assert.equal(isStopButton(labelled("Bildschirmfreigabe stoppen")), false);
+  assert.equal(isStopButton(labelled("Abbrechen")), false);
+});
+
+test("new composer Stop icon yields Working then Done without relying on translated labels", () => {
+  let generating = true;
+  const isStopButton = contentFunction("isStopButton");
+  const directWorkingSignal = contentFunction("directWorkingSignal", {
+    document: { querySelectorAll() { return generating ? [modernStopFixture()] : []; } },
+    isVisible: () => true,
+    isStopButton
+  });
+  const detectWorking = contentFunction("detectWorking", {
+    directWorkingSignal,
+    fallbackWorkingSignal() { return false; }
+  });
+
+  const url = "https://chatgpt.com/c/generation-regression";
+  const ctx = {
+    location: { href: url },
+    document: { title: "Generation regression" },
+    lastUrl: url,
+    lastTitle: "Generation regression",
+    localState: { state: "idle", finishedAt: null, updatedAt: Date.now() },
+    activeRunRestoreGraceUntil: 0,
+    activeRunStartedAt: null,
+    lastWorkPhaseSeenAt: 0,
+    finishTimer: null,
+    manualStopUntil: 0,
+    FINISH_CONFIRM_MS: 1400,
+    Date,
+    detectWorking,
+    detectWorkPhase: () => "",
+    detectVisibleIssue: () => null,
+    responseNeedsAttention: () => false,
+    promptHasDraft: () => false,
+    clearFinishTimer() { ctx.finishTimer = null; },
+    clearResetTimer() {},
+    paintTabStatus() {},
+    setState(state, props = {}) {
+      ctx.localState = { ...ctx.localState, ...props, state, updatedAt: Date.now() };
+    },
+    setTimeout(callback) {
+      ctx.finishCallback = callback;
+      return 1;
+    }
+  };
+  const evaluate = vm.runInNewContext("(" + functionSource(contentSource, "evaluate") + ")", ctx);
+  evaluate({ allowFallback: false });
+  assert.equal(ctx.localState.state, "working");
+
+  generating = false;
+  evaluate({ allowFallback: false });
+  assert.equal(typeof ctx.finishCallback, "function");
+  ctx.finishCallback();
+  assert.equal(ctx.localState.state, "finished");
+});

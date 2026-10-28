@@ -241,19 +241,36 @@
   function isStopButton(button) {
     if (!button) return false;
     if (button.getAttribute("data-testid") === "stop-button") return true;
-    const label = ((button.getAttribute("aria-label") || "") + " " + (button.textContent || ""))
+
+    // In newer ChatGPT composer variants the Stop button has no label/testid.
+    // Its verified square icon is only meaningful inside the prompt composer.
+    // Do not classify unrelated cancel, share, dictation or voice buttons.
+    if (button.getAttribute("type") === "button" &&
+        button.closest?.("form[data-chatgpt-composer]")) {
+      const stopIconPath = "M4.5 5.75C4.5 5.05964 5.05964 4.5 5.75 4.5H14.25C14.9404 4.5 15.5 5.05964 15.5 5.75V14.25C15.5 14.9404 14.9404 15.5 14.25 15.5H5.75C5.05964 15.5 4.5 14.9404 4.5 14.25V5.75Z";
+      const icons = button.querySelectorAll?.("svg.icon-primary-action > path[d], svg > path[d]") || [];
+      let scanned = 0;
+      for (const icon of icons) {
+        if (++scanned > 4) break;
+        const path = String(icon.getAttribute("d") || "").replace(/\s+/g, "");
+        if (path === stopIconPath.replace(/\s+/g, "")) return true;
+      }
+    }
+
+    const label = ((button.getAttribute("aria-label") || "") + " " +
+      (button.getAttribute("title") || "") + " " + (button.textContent || ""))
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")
       .trim()
       .toLowerCase();
-    if (/^(stop|detener)$/i.test(label)) return true;
-    return /(^|\s)(stop|cancel|detener|cancelar)(\s|$)/i.test(label) &&
-      /(generat|response|respuesta|thinking|pensando|generacion)/i.test(label);
+    if (/^(stop|detener|stopp)$/i.test(label)) return true;
+    return /(^|\s)(stop|cancel|detener|cancelar|stopp|stoppen|abbrechen|arreter)(\s|$)/i.test(label) &&
+      /(generat|response|respuesta|thinking|pensando|generacion|antwort|generier|erzeug|denkprozess)/i.test(label);
   }
 
   function directWorkingSignal() {
     const candidates = document.querySelectorAll(
-      'button[data-testid="stop-button"], [data-testid="stop-button"], button[aria-label], [role="button"][aria-label]'
+      'button[data-testid="stop-button"], [data-testid="stop-button"], button[aria-label], [role="button"][aria-label], form[data-chatgpt-composer] button[type="button"]'
     );
     for (const candidate of candidates) {
       if (isVisible(candidate) && isStopButton(candidate)) return true;
