@@ -23,22 +23,25 @@
 
 ## Color fork: ChatGPT tabs at a glance
 
-This fork adds **per-conversation status favicons** in Chromium-based browsers.
+This fork adds **high-contrast, per-tab status favicons** in Chromium-based browsers.
+They use colored circular markers with distinct symbols, not indistinguishable
+gray squares. On status changes the link is replaced to encourage immediate
+browser favicon refresh, while unchanged states remain stable.
 The existing floating multi-chat monitor and its nine-state detection remain
 intact. Each ChatGPT tab is updated independently without reading or sending
 conversation contents, changing tab titles, or reloading a tab.
 
-| State | Tab favicon / optional Vivaldi tab background |
-| --- | --- |
-| Working | Yellow |
-| Done (unread) | Green |
-| Needs attention | Orange |
-| Error | Red |
-| Retry needed | Light blue |
-| Stopped | Amber |
-| Draft | Purple |
-| Pending (manual) | Pink |
-| Idle | Gray |
+| Tab symbol | Status | Color |
+| --- | --- | --- |
+| ![Working](assets/tab-status/working.svg) | Working – generating an answer | Yellow |
+| ![Done](assets/tab-status/finished.svg) | Done – completed, not yet acknowledged | Green |
+| ![Attention](assets/tab-status/attention.svg) | Needs attention | Orange |
+| ![Error](assets/tab-status/error.svg) | Error or usage limit | Red |
+| ![Retry](assets/tab-status/retry.svg) | Retry after a transient problem | Light blue |
+| ![Stopped](assets/tab-status/interrupted.svg) | Interrupted or stopped | Amber |
+| ![Draft](assets/tab-status/draft.svg) | Unsent draft | Purple |
+| ![Pending](assets/tab-status/pending.svg) | Pending (manually marked) | Pink |
+| ![Idle](assets/tab-status/idle.svg) | Idle | Gray |
 
 **Note:** Detection is inherited from the upstream monitor, with visible
 quota/usage-limit messages classified as red **Error**, and transient network
@@ -60,7 +63,7 @@ reliably detected.
 
 ### Troubleshooting: gray dash while ChatGPT is answering
 
-The gray square with a dash means **Idle**. In version 0.4.3 the detector also
+The gray circle with a dash means **Idle**. Since version 0.4.3 the detector also
 recognizes the icon-only Stop control found in newer ChatGPT composer variants,
 as well as common German Stop labels. When a detected response finishes without
 an attention/error indication, an **unread background tab** changes to green.
