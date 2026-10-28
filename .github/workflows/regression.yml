@@ -4,8 +4,8 @@ on:
   push:
     branches:
       - main
-      - "dev/0.4.0-*"
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -13,14 +13,22 @@ permissions:
 jobs:
   regression:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
-      - name: Check packaged JavaScript syntax
+      - name: Use a consistent Node.js version
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Check JavaScript syntax and manifest
         run: |
           node --check background.js
           node --check content.js
           node --check tab-status.js
           node --check popup.js
           node --check offscreen.js
+          node --check tests/regression.test.mjs
+          node --check tests/tab-status-color.test.mjs
+          node -e "JSON.parse(require('node:fs').readFileSync('manifest.json', 'utf8'))"
       - name: Run dependency-free regression harness
         run: node --test tests/*.test.mjs

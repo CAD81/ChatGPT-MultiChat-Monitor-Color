@@ -4,6 +4,8 @@
 
 ## 0.4.2 - 2026-10-29 (Color fork)
 
+- Made the regression workflow manually runnable, pinned Node.js 22, and added syntax checks for new tests to give the fork reproducible CI.
+
 - Added per-chat status favicons for the existing nine monitor states, without changing the original page title or forcing tab reloads.
 - Added optional Vivaldi CSS for full-tab state backgrounds; the browser-specific CSS requires a Vivaldi UI test.
 - Added regression coverage for icon state mapping, ChatGPT favicon replacement, manifest scope, and CSS packaging.

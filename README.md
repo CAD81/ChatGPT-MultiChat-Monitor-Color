@@ -388,16 +388,29 @@ ChatGPT does not expose a public browser API for conversation generation state, 
 
 ## Development
 
-Static checks:
+The regression workflow runs on pull requests and on updates to `main`,
+using Node.js 22. After enabling GitHub Actions for a fork, it can also be
+started manually via **Actions > Regression > Run workflow** once the workflow
+is available on the default branch.
+
+Run the same checks locally before merging:
 
 ```powershell
 node --check background.js
 node --check content.js
+node --check tab-status.js
 node --check popup.js
 node --check offscreen.js
+node --check tests/regression.test.mjs
+node --check tests/tab-status-color.test.mjs
+node --test tests/*.test.mjs
 Get-Content -Raw manifest.json | ConvertFrom-Json
 git diff --check
 ```
+
+An Actions success means the automated checks passed. It does not prove that
+Vivaldi's internal tab markup can be styled by the optional CSS; validate
+full-tab coloring in a real Vivaldi installation before claiming support.
 
 ## Support development
 
