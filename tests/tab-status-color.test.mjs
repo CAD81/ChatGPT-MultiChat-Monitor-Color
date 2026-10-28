@@ -202,7 +202,9 @@ test("color tab icons use distinct high-contrast circles and distinguishable gly
     assert.match(svg, /<title>[^<]+<\/title>/);
     assert.doesNotMatch(svg, /<script\b|<foreignObject\b|(?:href|xlink:href)=["']https?:\/\//i);
     fills.add(expectedColors.get(state));
-    const glyph = svg.split("</circle>").pop();
+    const baseEnd = svg.indexOf('stroke-width="0.9"/>');
+    assert.ok(baseEnd >= 0, state + " base circle");
+    const glyph = svg.slice(baseEnd + 'stroke-width="0.9"/>'.length, svg.lastIndexOf("</svg>"));
     assert.ok(glyph.includes("<path") || glyph.includes("<rect") || glyph.includes("<circle"), state + " glyph");
     shapes.add(glyph);
   }
