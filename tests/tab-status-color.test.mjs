@@ -132,7 +132,7 @@ test("Vivaldi CSS provides a distinct tab color for each packaged state", () => 
     assert.match(icon, /<svg[^>]+viewBox=/);
     // SVG's required http://www.w3.org/2000/svg namespace is harmless.
     // Reject executable SVG nodes and remote URL-bearing href attributes.
-    assert.doesNotMatch(icon, /<script\\b|<foreignObject\\b|(?:href|xlink:href)=["']https?:\\/\\//i);
+    assert.doesNotMatch(icon, /<script\b|<foreignObject\b|(?:href|xlink:href)=["']https?:\/\//i);
     assert.ok(css.includes("/assets/tab-status/" + state + ".svg"), state + " CSS selector");
   }
 });
