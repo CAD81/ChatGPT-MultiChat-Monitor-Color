@@ -888,9 +888,10 @@ test("visible quota and usage-limit messages are errors, while transient faults 
 });
 
 test("manual Pending only colors the intended idle tab and yields to Working", async () => {
-  const { api } = await loadBackground();
   const a = { id: 411, windowId: 1, url: "https://chatgpt.com/c/status-a", title: "A" };
   const b = { id: 412, windowId: 1, url: "https://chatgpt.com/c/status-b", title: "B" };
+  // Registry initialization prunes tabs absent from the browser's real tab list.
+  const { api } = await loadBackground({ tabs: [a, b] });
   api.upsertState({ state: "idle", url: a.url }, a);
   api.upsertState({ state: "idle", url: b.url }, b);
   assert.equal(await api.setChatPreference("conversation:status-a", { pending: true }), true);
