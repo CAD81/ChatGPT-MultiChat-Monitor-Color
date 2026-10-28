@@ -58,6 +58,24 @@ reliably detected.
    reload tabs with unsaved prompts.
 4. The colored favicon status indicators should now work without UI mods.
 
+### Troubleshooting: gray dash while ChatGPT is answering
+
+The gray square with a dash means **Idle**. In version 0.4.3 the detector also
+recognizes the icon-only Stop control found in newer ChatGPT composer variants,
+as well as common German Stop labels. When a detected response finishes without
+an attention/error indication, an **unread background tab** changes to green.
+
+After updating the unpacked extension, open `vivaldi://extensions` and click
+**Reload** on the extension. Already-open ChatGPT tabs can retain older scripts:
+refresh those tabs manually only after saving unsent prompts or other work.
+The extension does **not** reload them automatically. If it remains gray during
+generation, compare the floating monitor's status for the same chat with the
+favicon and report whether both stay Idle; ChatGPT uses varying UI structures.
+
+The status **favicon** is colored by the extension. Coloring the *entire tab*
+requires the optional Vivaldi CSS setup below. That experimental CSS may not
+work in every Vivaldi release.
+
 ### Optional: color the *whole tab* in Vivaldi (experimental)
 
 1. Open `vivaldi://experiments` and enable **Allow for using CSS modifications**.

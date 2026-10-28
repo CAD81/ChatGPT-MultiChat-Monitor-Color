@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.4.3 - 2026-10-29 (ChatGPT DOM compatibility)
+
+- Recognize active responses from ChatGPT's newer unlabeled, square Stop icon inside the composer; retain strict scoping to avoid unrelated controls.
+- Recognize common German Stop labels without matching media or sharing controls.
+- Add regression tests for the icon-only composer variant, false positives, and the Working-to-Done transition.
+- Document manual tab refresh after extension updates and distinguish favicon coloring from experimental full-tab Vivaldi CSS.
+
+
 ## 0.4.2 - 2026-10-29 (Color fork)
 
 - Made the regression workflow manually runnable, pinned Node.js 22, and added syntax checks for new tests to give the fork reproducible CI.

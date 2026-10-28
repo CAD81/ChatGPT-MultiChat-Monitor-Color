@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ChatGPT MultiChat Monitor Color",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "description": "Per-tab ChatGPT status colors and a floating multi-chat monitor; optional Vivaldi tab backgrounds.",
   "permissions": [
     "storage",
