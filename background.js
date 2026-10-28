@@ -920,6 +920,13 @@ function upsertState(payload, tab) {
   return snapshotChanged;
 }
 
+function tabColorPendingFor(tabId) {
+  const chat = chats.get(tabId);
+  // Pending is a per-chat user preference, not a content-script state.
+  // Only an otherwise idle tab must show its manual Pending color.
+  return !!chat && decorate(chat).state === "pending";
+}
+
 async function broadcast() {
   await ensureRegistryReady();
   const data = snapshot();
@@ -936,7 +943,8 @@ async function broadcast() {
       .map((tab) => chrome.tabs.sendMessage(tab.id, {
         type: "monitor-snapshot",
         chats: data,
-        separators: separatorSnapshot()
+        separators: separatorSnapshot(),
+        tabPending: tabColorPendingFor(tab.id)
       }))
   );
   await updateBadge();
@@ -1592,8 +1600,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message?.type === "monitor-get-snapshot") {
     refreshRegistry()
-      .then(() => sendResponse({ chats: snapshot(), separators: separatorSnapshot() }))
-      .catch(() => sendResponse({ chats: snapshot(), separators: separatorSnapshot() }));
+      .then(() => sendResponse({ chats: snapshot(), separators: separatorSnapshot(), tabPending: tabColorPendingFor(sender.tab?.id) }))
+      .catch(() => sendResponse({ chats: snapshot(), separators: separatorSnapshot(), tabPending: tabColorPendingFor(sender.tab?.id) }));
     return true;
   }
 

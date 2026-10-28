@@ -40,7 +40,10 @@ conversation contents, changing tab titles, or reloading a tab.
 | Pending (manual) | Pink |
 | Idle | Gray |
 
-**Note:** Detection is inherited from the upstream monitor. In particular,
+**Note:** Detection is inherited from the upstream monitor, with visible
+quota/usage-limit messages classified as red **Error**, and transient network
+problems left as **Retry**. Manual **Pending** is read from the monitor's
+tab-scoped snapshot; it takes effect only while a tab is otherwise idle.
 "Needs attention" is heuristic, and only visible error / quota indicators can
 be classified. A quota error that ChatGPT does not expose to the page cannot be
 reliably detected.

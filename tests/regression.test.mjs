@@ -117,7 +117,7 @@ async function loadBackground(options = {}) {
 
   const exportsSource =
     "\nglobalThis.__testApi = {" +
-    " ensureInitialized, upsertState, activeRunForTab, queueActiveRunsPersist, chatKeyFromUrl," +
+    " ensureInitialized, upsertState, activeRunForTab, queueActiveRunsPersist, chatKeyFromUrl, tabColorPendingFor," +
     " activateTab, setChatOrder, setChatPreference, prefsFor, handleTabUpdated, handleTabRemoved, rebuildRegistry, ensureOffscreen, snapshot, signalLayoutLockedInActiveTab, resetMonitorPosition, resetMonitorSize, resetChatOrder, resetLayout," +
     " getChat(tabId) { return chats.get(tabId) || null; }" +
     "};";
@@ -866,4 +866,44 @@ test("new-chat / -> /c/<id> preserves run and migrates temporary prefs", async (
   assert.equal(api.activeRunForTab(tab.id, "conversation:new-id").startedAt, startedAt);
   assert.equal(api.prefsFor("conversation:new-id").alias, "Temporary alias");
   assert.equal(Object.keys(api.prefsFor("tab:45")).length, 0);
+});
+
+test("visible quota and usage-limit messages are errors, while transient faults remain retryable", () => {
+  const classify = contentFunction("classifyIssueText");
+  for (const text of [
+    "Too many requests",
+    "You’ve reached your usage limit",
+    "Usage limit reached",
+    "Quota exceeded",
+    "Nutzungskontingent erschöpft",
+    "Zu viele Anfragen"
+  ]) {
+    assert.equal(classify(text), "error", text);
+  }
+  assert.equal(classify("Network error. Try again."), "retry");
+  assert.equal(classify("Everything is fine"), null);
+});
+
+test("manual Pending only colors the intended idle tab and yields to Working", async () => {
+  const { api } = await loadBackground();
+  const a = { id: 411, windowId: 1, url: "https://chatgpt.com/c/status-a", title: "A" };
+  const b = { id: 412, windowId: 1, url: "https://chatgpt.com/c/status-b", title: "B" };
+  api.upsertState({ state: "idle", url: a.url }, a);
+  api.upsertState({ state: "idle", url: b.url }, b);
+  assert.equal(await api.setChatPreference("conversation:status-a", { pending: true }), true);
+  assert.equal(api.tabColorPendingFor(a.id), true);
+  assert.equal(api.tabColorPendingFor(b.id), false);
+  api.upsertState({ state: "working", url: a.url, startedAt: Date.now() }, a);
+  assert.equal(api.tabColorPendingFor(a.id), false);
+  api.upsertState({ state: "idle", url: a.url }, a);
+  assert.equal(api.tabColorPendingFor(a.id), true);
+  assert.equal(await api.setChatPreference("conversation:status-a", { pending: false }), true);
+  assert.equal(api.tabColorPendingFor(a.id), false);
+});
+
+test("snapshot delivery includes tab-scoped manual Pending flag", () => {
+  assert.match(backgroundSource, /tabPending: tabColorPendingFor\(tab\.id\)/);
+  assert.match(backgroundSource, /tabPending: tabColorPendingFor\(sender\.tab\?\.id\)/);
+  assert.match(contentSource, /tabPending = message\.tabPending === true/);
+  assert.match(contentSource, /tabPending = response\.tabPending === true/);
 });

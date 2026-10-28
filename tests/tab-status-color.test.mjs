@@ -115,9 +115,10 @@ test("manifest injects status module before monitor and exposes only status icon
   assert.deepEqual(assets[0].matches, ["https://chatgpt.com/*"]);
 });
 
-test("state publisher and recovery evaluations repaint the favicon", () => {
-  assert.match(contentSource, /function sendCurrentState\(\) \{\s*globalThis\.__chatgptMultiChatColorStatus\?\.apply\(localState\.state\)/);
-  assert.match(contentSource, /function evaluate\(options\) \{\s*globalThis\.__chatgptMultiChatColorStatus\?\.apply\(localState\.state\)/);
+test("state publisher and recovery evaluations repaint the favicon with Pending-aware state", () => {
+  assert.match(contentSource, /function sendCurrentState\(\) \{\s*paintTabStatus\(\)/);
+  assert.match(contentSource, /function evaluate\(options\) \{\s*paintTabStatus\(\)/);
+  assert.match(contentSource, /localState\.state === "idle" && tabPending \? "pending"/);
 });
 
 test("Vivaldi CSS provides a distinct tab color for each packaged state", () => {
@@ -129,7 +130,9 @@ test("Vivaldi CSS provides a distinct tab color for each packaged state", () => 
     assert.ok(fs.existsSync(file), state + " icon is packaged");
     const icon = fs.readFileSync(file, "utf8");
     assert.match(icon, /<svg[^>]+viewBox=/);
-    assert.doesNotMatch(icon, /<script|<foreignObject|https?:\/\//i);
+    // SVG's required http://www.w3.org/2000/svg namespace is harmless.
+    // Reject executable SVG nodes and remote URL-bearing href attributes.
+    assert.doesNotMatch(icon, /<script\\b|<foreignObject\\b|(?:href|xlink:href)=["']https?:\\/\\//i);
     assert.ok(css.includes("/assets/tab-status/" + state + ".svg"), state + " CSS selector");
   }
 });
