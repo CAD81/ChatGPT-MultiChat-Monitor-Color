@@ -8,6 +8,7 @@
 - Added optional Vivaldi CSS for full-tab state backgrounds; the browser-specific CSS requires a Vivaldi UI test.
 - Added regression coverage for icon state mapping, ChatGPT favicon replacement, manifest scope, and CSS packaging.
 - Corrected an SVG regression assertion that rejected the standard SVG namespace.
+- Updated the upstream manifest security regression for the single restricted SVG resource declaration; escaped apostrophes in the quota matcher for compatibility with the upstream test parser.
 - Distinguish visible quota/usage-limit failures as red Error instead of blue Retry; preserve Retry for transient network problems.
 - Respect manual Pending flags from tab-scoped monitor snapshots and reset them on navigation.
 - Branded the fork and redirected release checks to this repository while retaining upstream attribution and MIT license.

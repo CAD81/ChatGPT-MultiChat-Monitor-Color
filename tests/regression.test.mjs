@@ -284,7 +284,10 @@ test("manifest remains scoped to ChatGPT", () => {
   assert.equal(manifest.manifest_version, 3);
   assert.deepEqual(manifest.host_permissions, ["https://chatgpt.com/*"]);
   assert.equal("externally_connectable" in manifest, false);
-  assert.equal("web_accessible_resources" in manifest, false);
+  // The color fork intentionally exposes only static status SVG assets to ChatGPT.
+  assert.deepEqual(manifest.web_accessible_resources, [
+    { resources: ["assets/tab-status/*.svg"], matches: ["https://chatgpt.com/*"] }
+  ]);
 });
 
 test("concurrent sound requests share one offscreen creation", async () => {

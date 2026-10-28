@@ -415,7 +415,7 @@
     if (!value) return null;
 
     // Explicit quota/usage limits need a conspicuous error, not a routine Retry.
-    if (/(too many requests|you(?:'|’)?ve (?:hit|reached) (?:your |the )?(?:usage |message |rate )?limit|(?:usage|message|daily|weekly) limit|limit (?:reached|exceeded)|quota (?:reached|exceeded)|maximum (?:number of |allowed )?(?:messages|requests)|nutzungslimit|nutzungskontingent|kontingent (?:aufgebraucht|erschöpft)|zu viele anfragen)/i.test(value)) {
+    if (/(too many requests|you(?:\x27|\u2019)?ve (?:hit|reached) (?:your |the )?(?:usage |message |rate )?limit|(?:usage|message|daily|weekly) limit|limit (?:reached|exceeded)|quota (?:reached|exceeded)|maximum (?:number of |allowed )?(?:messages|requests)|nutzungslimit|nutzungskontingent|kontingent (?:aufgebraucht|erschöpft)|zu viele anfragen)/i.test(value)) {
       return "error";
     }
 
