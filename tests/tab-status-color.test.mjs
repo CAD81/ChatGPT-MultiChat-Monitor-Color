@@ -37,7 +37,7 @@ function environment(withRuntime = true) {
     querySelectorAll(selector) {
       assert.equal(selector, 'link[rel~="icon"]');
       return nodes.filter((n) => n.tagName === "LINK" &&
-        String(n.rel || "").split(/\\s+/).includes("icon"));
+        String(n.rel || "").split(/\s+/).includes("icon"));
     }
   };
   const sandbox = { document };
@@ -78,7 +78,7 @@ test("reapplying the same state is idempotent", () => {
 test("unknown status safely falls back to idle", () => {
   const { api, nodes } = environment();
   assert.equal(api.apply("__not_a_real_state__"), true);
-  assert.match(nodes[0].getAttribute("href"), /\\/idle\\.svg$/);
+  assert.match(nodes[0].getAttribute("href"), /\/idle\.svg$/);
 });
 
 test("existing ChatGPT icon remains intact and late site icons do not override the status icon", () => {
@@ -96,7 +96,7 @@ test("existing ChatGPT icon remains intact and late site icons do not override t
   head.appendChild(lateSiteIcon);
   api.apply("error");
   assert.equal(nodes[nodes.length - 1], custom);
-  assert.match(custom.getAttribute("href"), /\\/error\\.svg$/);
+  assert.match(custom.getAttribute("href"), /\/error\.svg$/);
   assert.equal(nodes.length, 3);
 });
 
@@ -116,20 +116,25 @@ test("manifest injects status module before monitor and exposes only status icon
 });
 
 test("state publisher and recovery evaluations repaint the favicon", () => {
-  assert.match(contentSource, /function sendCurrentState\\(\\) \\{\\s*globalThis\\.__chatgptMultiChatColorStatus\\?\\.apply\\(localState\\.state\\)/);
-  assert.match(contentSource, /function evaluate\\(options\\) \\{\\s*globalThis\\.__chatgptMultiChatColorStatus\\?\\.apply\\(localState\\.state\\)/);
+  assert.match(contentSource, /function sendCurrentState\(\) \{\s*globalThis\.__chatgptMultiChatColorStatus\?\.apply\(localState\.state\)/);
+  assert.match(contentSource, /function evaluate\(options\) \{\s*globalThis\.__chatgptMultiChatColorStatus\?\.apply\(localState\.state\)/);
 });
 
 test("Vivaldi CSS provides a distinct tab color for each packaged state", () => {
   const css = fs.readFileSync(path.join(root, "vivaldi/chatgpt-multichat-monitor-color.css"), "utf8");
-  assert.match(css, /#tabs-container \\.tab:has\\(/);
-  assert.match(css, /\\.tab-header/);
+  assert.match(css, /#tabs-container \.tab:has\(/);
+  assert.match(css, /\.tab-header/);
   for (const state of states) {
     const file = path.join(root, "assets/tab-status", state + ".svg");
     assert.ok(fs.existsSync(file), state + " icon is packaged");
     const icon = fs.readFileSync(file, "utf8");
     assert.match(icon, /<svg[^>]+viewBox=/);
-    assert.doesNotMatch(icon, /<script|<foreignObject|https?:\\/\\//i);
+    assert.doesNotMatch(icon, /<script|<foreignObject|https?:\/\//i);
     assert.ok(css.includes("/assets/tab-status/" + state + ".svg"), state + " CSS selector");
   }
+});
+
+test("re-injection also loads the icon module before the monitor on existing tabs", () => {
+  const background = fs.readFileSync(path.join(root, "background.js"), "utf8");
+  assert.ok(background.includes('files: ["tab-status.js", "content.js"]'));
 });

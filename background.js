@@ -1546,7 +1546,7 @@ async function injectIntoOpenTabs() {
       .filter((tab) => Number.isInteger(tab.id))
       .map((tab) => chrome.scripting.executeScript({
         target: { tabId: tab.id },
-        files: ["content.js"]
+        files: ["tab-status.js", "content.js"]
       }))
   );
 
