@@ -93,23 +93,50 @@ The extension does **not** reload them automatically. If it remains gray during
 generation, compare the floating monitor's status for the same chat with the
 favicon and report whether both stay Idle; ChatGPT uses varying UI structures.
 
-The status **favicon** is colored by the extension. Coloring the *entire tab*
-requires the optional Vivaldi CSS setup below. That experimental CSS may not
-work in every Vivaldi release.
+The status **favicon** is colored by the extension. For the full tab
+background, install the separate versioned Vivaldi CSS asset below.
+That CSS is experimental and may not work in every Vivaldi release.
 
-### Optional: color the *whole tab* in Vivaldi (experimental)
+### Color the entire tab background in Vivaldi (experimental)
 
-1. Open `vivaldi://experiments` and enable **Allow for using CSS modifications**.
-2. Restart Vivaldi. In **Settings > Appearance > Custom UI Modifications**,
-   select a folder for your custom CSS files.
-3. Copy `vivaldi/chatgpt-multichat-monitor-color.css` into that folder.
-4. Restart Vivaldi and inspect several ChatGPT tabs in different states.
+**The browser extension alone changes only the favicon.** Per-tab
+background colors require a separate Vivaldi CSS modification.
 
-This CSS relies on Vivaldi's *internal* tab DOM exposing the extension favicon
-URL on the `.favicon` element. That is not a stable browser extension API:
-the CSS **may require adjusting for your Vivaldi version**, and a full-tab
-background is not guaranteed until tested in the actual browser. The colored
-favicons are a browser-neutral fallback. The CSS never changes other websites.
+1. Install the extension ZIP from [Releases → Assets](https://github.com/CAD81/ChatGPT-MultiChat-Monitor-Color/releases/latest) as above.
+2. On the same release, download the separately named
+   `ChatGPT-MultiChat-Monitor-Color-vX.Y.Z-vivaldi.css` asset.
+   (The same file is also in the ZIP under `vivaldi/`.)
+3. In Vivaldi, open `vivaldi://experiments` and enable
+   **Allow for using CSS modifications**.
+4. Create a permanent folder such as `Dokumente\VivaldiCSS` and place
+   the downloaded `.css` file **directly in that folder**.
+   Only keep the newest version of this CSS file there.
+5. In Vivaldi open `vivaldi://settings/appearance/`, find
+   **Custom UI Modifications**, and select that folder.
+6. **Completely restart Vivaldi**. A working ChatGPT tab should become
+   yellow, a finished one green, and error/attention states red/orange.
+   Idle tabs retain your normal Vivaldi theme.
+
+These rules recognize the status icon URL on Vivaldi's tab favicon element,
+including `src`, `srcset`, and CSS background-image attributes.
+**Vivaldi does not provide a supported extension API for individual tab
+background colors.** If your Vivaldi build converts favicons into `data:`
+images before rendering the UI, the CSS cannot identify the status and
+will not recolor that tab. We cannot guarantee this across Vivaldi versions
+without a live browser UI test.
+
+If the color doesn't appear, first confirm the custom CSS is loaded.
+Make a temporary file `check-vivaldi-css.css` in the same folder containing:
+
+```css
+#tabs-container .tab .tab-header { outline: 2px solid cyan !important; }
+```
+
+Restart Vivaldi. If the cyan outline appears, Vivaldi is loading your
+custom CSS; if tab status backgrounds still do not change, the next
+step is to inspect the Vivaldi tab favicon DOM, not to reinstall
+the extension. Delete the temporary test CSS afterwards.
+
 
 ### Development / upstream
 

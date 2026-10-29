@@ -1,76 +1,62 @@
-/* Optional Vivaldi UI CSS mod for ChatGPT MultiChat Monitor Color.
-   Requires the separately installed extension and Vivaldi to expose its
-   per-state favicon URL in the tab's DOM. Browser-version-dependent. */
+/* ChatGPT MultiChat Monitor Color — optional Vivaldi UI CSS. Version 0.4.5.
+   IMPORTANT: The Chromium extension alone cannot recolor the tab bar.
+   Enable CSS modifications in vivaldi://experiments, set your CSS folder under
+   Settings > Appearance > Custom UI Modifications, then restart Vivaldi.
+   This matches a status favicon URL exposed by the Vivaldi tab DOM.
+   Some Vivaldi builds expose only a generated data: image; in that case
+   CSS cannot reliably infer the state. No active state = no recoloring.
+   Never changes unrelated website tabs. */
 
-#tabs-container .tab:has(.favicon[src*="/assets/tab-status/working.svg"]),
-#tabs-container .tab:has(.favicon[style*="/assets/tab-status/working.svg"]),
-#tabs-container .tab:has(.favicon img[src*="/assets/tab-status/working.svg"]) {
-  --gptmm-tab-color: #EAB308;
+/* working */
+#tabs-container .tab:has(.favicon img[src*="/assets/tab-status/working.svg"], .favicon img[srcset*="/assets/tab-status/working.svg"], .favicon img[style*="/assets/tab-status/working.svg"], .favicon[src*="/assets/tab-status/working.svg"], .favicon[srcset*="/assets/tab-status/working.svg"], .favicon[style*="/assets/tab-status/working.svg"]) {
+  --gptmm-status-tab-bg: #EAB308;
 }
 
-#tabs-container .tab:has(.favicon[src*="/assets/tab-status/finished.svg"]),
-#tabs-container .tab:has(.favicon[style*="/assets/tab-status/finished.svg"]),
-#tabs-container .tab:has(.favicon img[src*="/assets/tab-status/finished.svg"]) {
-  --gptmm-tab-color: #22C55E;
+/* finished */
+#tabs-container .tab:has(.favicon img[src*="/assets/tab-status/finished.svg"], .favicon img[srcset*="/assets/tab-status/finished.svg"], .favicon img[style*="/assets/tab-status/finished.svg"], .favicon[src*="/assets/tab-status/finished.svg"], .favicon[srcset*="/assets/tab-status/finished.svg"], .favicon[style*="/assets/tab-status/finished.svg"]) {
+  --gptmm-status-tab-bg: #22C55E;
 }
 
-#tabs-container .tab:has(.favicon[src*="/assets/tab-status/attention.svg"]),
-#tabs-container .tab:has(.favicon[style*="/assets/tab-status/attention.svg"]),
-#tabs-container .tab:has(.favicon img[src*="/assets/tab-status/attention.svg"]) {
-  --gptmm-tab-color: #F97316;
+/* attention */
+#tabs-container .tab:has(.favicon img[src*="/assets/tab-status/attention.svg"], .favicon img[srcset*="/assets/tab-status/attention.svg"], .favicon img[style*="/assets/tab-status/attention.svg"], .favicon[src*="/assets/tab-status/attention.svg"], .favicon[srcset*="/assets/tab-status/attention.svg"], .favicon[style*="/assets/tab-status/attention.svg"]) {
+  --gptmm-status-tab-bg: #F97316;
 }
 
-#tabs-container .tab:has(.favicon[src*="/assets/tab-status/error.svg"]),
-#tabs-container .tab:has(.favicon[style*="/assets/tab-status/error.svg"]),
-#tabs-container .tab:has(.favicon img[src*="/assets/tab-status/error.svg"]) {
-  --gptmm-tab-color: #EF4444;
+/* error */
+#tabs-container .tab:has(.favicon img[src*="/assets/tab-status/error.svg"], .favicon img[srcset*="/assets/tab-status/error.svg"], .favicon img[style*="/assets/tab-status/error.svg"], .favicon[src*="/assets/tab-status/error.svg"], .favicon[srcset*="/assets/tab-status/error.svg"], .favicon[style*="/assets/tab-status/error.svg"]) {
+  --gptmm-status-tab-bg: #EF4444;
 }
 
-#tabs-container .tab:has(.favicon[src*="/assets/tab-status/retry.svg"]),
-#tabs-container .tab:has(.favicon[style*="/assets/tab-status/retry.svg"]),
-#tabs-container .tab:has(.favicon img[src*="/assets/tab-status/retry.svg"]) {
-  --gptmm-tab-color: #38BDF8;
+/* retry */
+#tabs-container .tab:has(.favicon img[src*="/assets/tab-status/retry.svg"], .favicon img[srcset*="/assets/tab-status/retry.svg"], .favicon img[style*="/assets/tab-status/retry.svg"], .favicon[src*="/assets/tab-status/retry.svg"], .favicon[srcset*="/assets/tab-status/retry.svg"], .favicon[style*="/assets/tab-status/retry.svg"]) {
+  --gptmm-status-tab-bg: #38BDF8;
 }
 
-#tabs-container .tab:has(.favicon[src*="/assets/tab-status/interrupted.svg"]),
-#tabs-container .tab:has(.favicon[style*="/assets/tab-status/interrupted.svg"]),
-#tabs-container .tab:has(.favicon img[src*="/assets/tab-status/interrupted.svg"]) {
-  --gptmm-tab-color: #D97706;
+/* interrupted */
+#tabs-container .tab:has(.favicon img[src*="/assets/tab-status/interrupted.svg"], .favicon img[srcset*="/assets/tab-status/interrupted.svg"], .favicon img[style*="/assets/tab-status/interrupted.svg"], .favicon[src*="/assets/tab-status/interrupted.svg"], .favicon[srcset*="/assets/tab-status/interrupted.svg"], .favicon[style*="/assets/tab-status/interrupted.svg"]) {
+  --gptmm-status-tab-bg: #D97706;
 }
 
-#tabs-container .tab:has(.favicon[src*="/assets/tab-status/draft.svg"]),
-#tabs-container .tab:has(.favicon[style*="/assets/tab-status/draft.svg"]),
-#tabs-container .tab:has(.favicon img[src*="/assets/tab-status/draft.svg"]) {
-  --gptmm-tab-color: #A855F7;
+/* draft */
+#tabs-container .tab:has(.favicon img[src*="/assets/tab-status/draft.svg"], .favicon img[srcset*="/assets/tab-status/draft.svg"], .favicon img[style*="/assets/tab-status/draft.svg"], .favicon[src*="/assets/tab-status/draft.svg"], .favicon[srcset*="/assets/tab-status/draft.svg"], .favicon[style*="/assets/tab-status/draft.svg"]) {
+  --gptmm-status-tab-bg: #A855F7;
 }
 
-#tabs-container .tab:has(.favicon[src*="/assets/tab-status/pending.svg"]),
-#tabs-container .tab:has(.favicon[style*="/assets/tab-status/pending.svg"]),
-#tabs-container .tab:has(.favicon img[src*="/assets/tab-status/pending.svg"]) {
-  --gptmm-tab-color: #EC4899;
+/* pending */
+#tabs-container .tab:has(.favicon img[src*="/assets/tab-status/pending.svg"], .favicon img[srcset*="/assets/tab-status/pending.svg"], .favicon img[style*="/assets/tab-status/pending.svg"], .favicon[src*="/assets/tab-status/pending.svg"], .favicon[srcset*="/assets/tab-status/pending.svg"], .favicon[style*="/assets/tab-status/pending.svg"]) {
+  --gptmm-status-tab-bg: #EC4899;
 }
 
-#tabs-container .tab:has(.favicon[src*="/assets/tab-status/idle.svg"]),
-#tabs-container .tab:has(.favicon[style*="/assets/tab-status/idle.svg"]),
-#tabs-container .tab:has(.favicon img[src*="/assets/tab-status/idle.svg"]) {
-  --gptmm-tab-color: #94A3B8;
-}
-
-#tabs-container .tab:has(.favicon[src*="/assets/tab-status/"]),
-#tabs-container .tab:has(.favicon[style*="/assets/tab-status/"]),
-#tabs-container .tab:has(.favicon img[src*="/assets/tab-status/"]) {
-  background-color: var(--gptmm-tab-color) !important;
-}
-
-#tabs-container .tab:has(.favicon[src*="/assets/tab-status/"]) .tab-header,
-#tabs-container .tab:has(.favicon[style*="/assets/tab-status/"]) .tab-header,
-#tabs-container .tab:has(.favicon img[src*="/assets/tab-status/"]) .tab-header {
-  background-color: var(--gptmm-tab-color) !important;
+/* Idle: /assets/tab-status/idle.svg intentionally retains Vivaldi's theme. */
+#tabs-container .tab:has(.favicon img[src*="/assets/tab-status/working.svg"], .favicon img[srcset*="/assets/tab-status/working.svg"], .favicon img[style*="/assets/tab-status/working.svg"], .favicon[src*="/assets/tab-status/working.svg"], .favicon[srcset*="/assets/tab-status/working.svg"], .favicon[style*="/assets/tab-status/working.svg"], .favicon img[src*="/assets/tab-status/finished.svg"], .favicon img[srcset*="/assets/tab-status/finished.svg"], .favicon img[style*="/assets/tab-status/finished.svg"], .favicon[src*="/assets/tab-status/finished.svg"], .favicon[srcset*="/assets/tab-status/finished.svg"], .favicon[style*="/assets/tab-status/finished.svg"], .favicon img[src*="/assets/tab-status/attention.svg"], .favicon img[srcset*="/assets/tab-status/attention.svg"], .favicon img[style*="/assets/tab-status/attention.svg"], .favicon[src*="/assets/tab-status/attention.svg"], .favicon[srcset*="/assets/tab-status/attention.svg"], .favicon[style*="/assets/tab-status/attention.svg"], .favicon img[src*="/assets/tab-status/error.svg"], .favicon img[srcset*="/assets/tab-status/error.svg"], .favicon img[style*="/assets/tab-status/error.svg"], .favicon[src*="/assets/tab-status/error.svg"], .favicon[srcset*="/assets/tab-status/error.svg"], .favicon[style*="/assets/tab-status/error.svg"], .favicon img[src*="/assets/tab-status/retry.svg"], .favicon img[srcset*="/assets/tab-status/retry.svg"], .favicon img[style*="/assets/tab-status/retry.svg"], .favicon[src*="/assets/tab-status/retry.svg"], .favicon[srcset*="/assets/tab-status/retry.svg"], .favicon[style*="/assets/tab-status/retry.svg"], .favicon img[src*="/assets/tab-status/interrupted.svg"], .favicon img[srcset*="/assets/tab-status/interrupted.svg"], .favicon img[style*="/assets/tab-status/interrupted.svg"], .favicon[src*="/assets/tab-status/interrupted.svg"], .favicon[srcset*="/assets/tab-status/interrupted.svg"], .favicon[style*="/assets/tab-status/interrupted.svg"], .favicon img[src*="/assets/tab-status/draft.svg"], .favicon img[srcset*="/assets/tab-status/draft.svg"], .favicon img[style*="/assets/tab-status/draft.svg"], .favicon[src*="/assets/tab-status/draft.svg"], .favicon[srcset*="/assets/tab-status/draft.svg"], .favicon[style*="/assets/tab-status/draft.svg"], .favicon img[src*="/assets/tab-status/pending.svg"], .favicon img[srcset*="/assets/tab-status/pending.svg"], .favicon img[style*="/assets/tab-status/pending.svg"], .favicon[src*="/assets/tab-status/pending.svg"], .favicon[srcset*="/assets/tab-status/pending.svg"], .favicon[style*="/assets/tab-status/pending.svg"]),
+#tabs-container .tab:has(.favicon img[src*="/assets/tab-status/working.svg"], .favicon img[srcset*="/assets/tab-status/working.svg"], .favicon img[style*="/assets/tab-status/working.svg"], .favicon[src*="/assets/tab-status/working.svg"], .favicon[srcset*="/assets/tab-status/working.svg"], .favicon[style*="/assets/tab-status/working.svg"], .favicon img[src*="/assets/tab-status/finished.svg"], .favicon img[srcset*="/assets/tab-status/finished.svg"], .favicon img[style*="/assets/tab-status/finished.svg"], .favicon[src*="/assets/tab-status/finished.svg"], .favicon[srcset*="/assets/tab-status/finished.svg"], .favicon[style*="/assets/tab-status/finished.svg"], .favicon img[src*="/assets/tab-status/attention.svg"], .favicon img[srcset*="/assets/tab-status/attention.svg"], .favicon img[style*="/assets/tab-status/attention.svg"], .favicon[src*="/assets/tab-status/attention.svg"], .favicon[srcset*="/assets/tab-status/attention.svg"], .favicon[style*="/assets/tab-status/attention.svg"], .favicon img[src*="/assets/tab-status/error.svg"], .favicon img[srcset*="/assets/tab-status/error.svg"], .favicon img[style*="/assets/tab-status/error.svg"], .favicon[src*="/assets/tab-status/error.svg"], .favicon[srcset*="/assets/tab-status/error.svg"], .favicon[style*="/assets/tab-status/error.svg"], .favicon img[src*="/assets/tab-status/retry.svg"], .favicon img[srcset*="/assets/tab-status/retry.svg"], .favicon img[style*="/assets/tab-status/retry.svg"], .favicon[src*="/assets/tab-status/retry.svg"], .favicon[srcset*="/assets/tab-status/retry.svg"], .favicon[style*="/assets/tab-status/retry.svg"], .favicon img[src*="/assets/tab-status/interrupted.svg"], .favicon img[srcset*="/assets/tab-status/interrupted.svg"], .favicon img[style*="/assets/tab-status/interrupted.svg"], .favicon[src*="/assets/tab-status/interrupted.svg"], .favicon[srcset*="/assets/tab-status/interrupted.svg"], .favicon[style*="/assets/tab-status/interrupted.svg"], .favicon img[src*="/assets/tab-status/draft.svg"], .favicon img[srcset*="/assets/tab-status/draft.svg"], .favicon img[style*="/assets/tab-status/draft.svg"], .favicon[src*="/assets/tab-status/draft.svg"], .favicon[srcset*="/assets/tab-status/draft.svg"], .favicon[style*="/assets/tab-status/draft.svg"], .favicon img[src*="/assets/tab-status/pending.svg"], .favicon img[srcset*="/assets/tab-status/pending.svg"], .favicon img[style*="/assets/tab-status/pending.svg"], .favicon[src*="/assets/tab-status/pending.svg"], .favicon[srcset*="/assets/tab-status/pending.svg"], .favicon[style*="/assets/tab-status/pending.svg"]) .tab-header {
+  background: var(--gptmm-status-tab-bg) !important;
+  background-image: none !important;
   color: #111827 !important;
 }
 
-#tabs-container .tab:has(.favicon[src*="/assets/tab-status/"]) .title,
-#tabs-container .tab:has(.favicon[style*="/assets/tab-status/"]) .title,
-#tabs-container .tab:has(.favicon img[src*="/assets/tab-status/"]) .title {
+#tabs-container .tab:has(.favicon img[src*="/assets/tab-status/working.svg"], .favicon img[srcset*="/assets/tab-status/working.svg"], .favicon img[style*="/assets/tab-status/working.svg"], .favicon[src*="/assets/tab-status/working.svg"], .favicon[srcset*="/assets/tab-status/working.svg"], .favicon[style*="/assets/tab-status/working.svg"], .favicon img[src*="/assets/tab-status/finished.svg"], .favicon img[srcset*="/assets/tab-status/finished.svg"], .favicon img[style*="/assets/tab-status/finished.svg"], .favicon[src*="/assets/tab-status/finished.svg"], .favicon[srcset*="/assets/tab-status/finished.svg"], .favicon[style*="/assets/tab-status/finished.svg"], .favicon img[src*="/assets/tab-status/attention.svg"], .favicon img[srcset*="/assets/tab-status/attention.svg"], .favicon img[style*="/assets/tab-status/attention.svg"], .favicon[src*="/assets/tab-status/attention.svg"], .favicon[srcset*="/assets/tab-status/attention.svg"], .favicon[style*="/assets/tab-status/attention.svg"], .favicon img[src*="/assets/tab-status/error.svg"], .favicon img[srcset*="/assets/tab-status/error.svg"], .favicon img[style*="/assets/tab-status/error.svg"], .favicon[src*="/assets/tab-status/error.svg"], .favicon[srcset*="/assets/tab-status/error.svg"], .favicon[style*="/assets/tab-status/error.svg"], .favicon img[src*="/assets/tab-status/retry.svg"], .favicon img[srcset*="/assets/tab-status/retry.svg"], .favicon img[style*="/assets/tab-status/retry.svg"], .favicon[src*="/assets/tab-status/retry.svg"], .favicon[srcset*="/assets/tab-status/retry.svg"], .favicon[style*="/assets/tab-status/retry.svg"], .favicon img[src*="/assets/tab-status/interrupted.svg"], .favicon img[srcset*="/assets/tab-status/interrupted.svg"], .favicon img[style*="/assets/tab-status/interrupted.svg"], .favicon[src*="/assets/tab-status/interrupted.svg"], .favicon[srcset*="/assets/tab-status/interrupted.svg"], .favicon[style*="/assets/tab-status/interrupted.svg"], .favicon img[src*="/assets/tab-status/draft.svg"], .favicon img[srcset*="/assets/tab-status/draft.svg"], .favicon img[style*="/assets/tab-status/draft.svg"], .favicon[src*="/assets/tab-status/draft.svg"], .favicon[srcset*="/assets/tab-status/draft.svg"], .favicon[style*="/assets/tab-status/draft.svg"], .favicon img[src*="/assets/tab-status/pending.svg"], .favicon img[srcset*="/assets/tab-status/pending.svg"], .favicon img[style*="/assets/tab-status/pending.svg"], .favicon[src*="/assets/tab-status/pending.svg"], .favicon[srcset*="/assets/tab-status/pending.svg"], .favicon[style*="/assets/tab-status/pending.svg"]) .tab-header .title,
+#tabs-container .tab:has(.favicon img[src*="/assets/tab-status/working.svg"], .favicon img[srcset*="/assets/tab-status/working.svg"], .favicon img[style*="/assets/tab-status/working.svg"], .favicon[src*="/assets/tab-status/working.svg"], .favicon[srcset*="/assets/tab-status/working.svg"], .favicon[style*="/assets/tab-status/working.svg"], .favicon img[src*="/assets/tab-status/finished.svg"], .favicon img[srcset*="/assets/tab-status/finished.svg"], .favicon img[style*="/assets/tab-status/finished.svg"], .favicon[src*="/assets/tab-status/finished.svg"], .favicon[srcset*="/assets/tab-status/finished.svg"], .favicon[style*="/assets/tab-status/finished.svg"], .favicon img[src*="/assets/tab-status/attention.svg"], .favicon img[srcset*="/assets/tab-status/attention.svg"], .favicon img[style*="/assets/tab-status/attention.svg"], .favicon[src*="/assets/tab-status/attention.svg"], .favicon[srcset*="/assets/tab-status/attention.svg"], .favicon[style*="/assets/tab-status/attention.svg"], .favicon img[src*="/assets/tab-status/error.svg"], .favicon img[srcset*="/assets/tab-status/error.svg"], .favicon img[style*="/assets/tab-status/error.svg"], .favicon[src*="/assets/tab-status/error.svg"], .favicon[srcset*="/assets/tab-status/error.svg"], .favicon[style*="/assets/tab-status/error.svg"], .favicon img[src*="/assets/tab-status/retry.svg"], .favicon img[srcset*="/assets/tab-status/retry.svg"], .favicon img[style*="/assets/tab-status/retry.svg"], .favicon[src*="/assets/tab-status/retry.svg"], .favicon[srcset*="/assets/tab-status/retry.svg"], .favicon[style*="/assets/tab-status/retry.svg"], .favicon img[src*="/assets/tab-status/interrupted.svg"], .favicon img[srcset*="/assets/tab-status/interrupted.svg"], .favicon img[style*="/assets/tab-status/interrupted.svg"], .favicon[src*="/assets/tab-status/interrupted.svg"], .favicon[srcset*="/assets/tab-status/interrupted.svg"], .favicon[style*="/assets/tab-status/interrupted.svg"], .favicon img[src*="/assets/tab-status/draft.svg"], .favicon img[srcset*="/assets/tab-status/draft.svg"], .favicon img[style*="/assets/tab-status/draft.svg"], .favicon[src*="/assets/tab-status/draft.svg"], .favicon[srcset*="/assets/tab-status/draft.svg"], .favicon[style*="/assets/tab-status/draft.svg"], .favicon img[src*="/assets/tab-status/pending.svg"], .favicon img[srcset*="/assets/tab-status/pending.svg"], .favicon img[style*="/assets/tab-status/pending.svg"], .favicon[src*="/assets/tab-status/pending.svg"], .favicon[srcset*="/assets/tab-status/pending.svg"], .favicon[style*="/assets/tab-status/pending.svg"]) .tab-header .close {
   color: #111827 !important;
+  text-shadow: none !important;
 }

@@ -114,7 +114,7 @@ test("missing extension runtime does not throw or modify the site", () => {
 
 test("manifest injects status module before monitor and exposes only status icons on ChatGPT", () => {
   assert.deepEqual(manifest.content_scripts[0].js, ["tab-status.js", "content.js"]);
-  assert.equal(manifest.version, "0.4.4");
+  assert.equal(manifest.version, "0.4.5");
   const assets = manifest.web_accessible_resources;
   assert.equal(assets.length, 1);
   assert.deepEqual(assets[0].resources, ["assets/tab-status/*.svg"]);
@@ -210,4 +210,27 @@ test("color tab icons use distinct high-contrast circles and distinguishable gly
   }
   assert.equal(fills.size, 9);
   assert.equal(shapes.size, 9);
+});
+
+
+test("Vivaldi background CSS supports image srcset and leaves idle theme unchanged", () => {
+  const css = fs.readFileSync(path.join(root, "vivaldi/chatgpt-multichat-monitor-color.css"), "utf8");
+  for (const state of states.filter((name) => name !== "idle")) {
+    const file = "/assets/tab-status/" + state + ".svg";
+    assert.ok(css.includes('.favicon img[src*="' + file + '"]'), "src selector " + state);
+    assert.ok(css.includes('.favicon img[srcset*="' + file + '"]'), "srcset selector " + state);
+    assert.ok(css.includes('.favicon[src*="' + file + '"]'), "direct favicon selector " + state);
+  }
+  assert.match(css, /background: var\(--gptmm-status-tab-bg\) !important/);
+  assert.match(css, /idle\.svg intentionally retains Vivaldi/);
+  assert.match(css, /\.tab-header/);
+});
+
+test("packager includes Vivaldi CSS and emits separately versioned CSS asset", () => {
+  const packager = fs.readFileSync(path.join(root, "scripts/build-release.sh"), "utf8");
+  const release = fs.readFileSync(path.join(root, ".github/workflows/release.yml"), "utf8");
+  assert.match(packager, /vivaldi\/chatgpt-multichat-monitor-color\.css/);
+  assert.match(packager, /-vivaldi\.css/);
+  assert.match(release, /cssfilename=/);
+  assert.match(release, /dist\/\$cssfilename/);
 });
