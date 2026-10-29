@@ -50,8 +50,7 @@ function renderVivaldiColors() {
 }
 async function exportVivaldiCss() {
   const css = vivaldiColorsApi.generate(vivaldiColors, {
-    testOutline: vivaldiTestOutline.checked,
-    version: chrome.runtime.getManifest().version
+    testOutline: vivaldiTestOutline.checked
   });
   const url = URL.createObjectURL(new Blob([css], {type:"text/css;charset=utf-8"}));
   const link = document.createElement("a");
