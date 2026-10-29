@@ -26,8 +26,7 @@
   function generate(input, options = {}) {
     const colors = normalized(input);
     const test = options.testOutline === true;
-    const version = /^\d+\.\d+\.\d+$/.test(options.version || "") ? options.version : "unknown";
-    let css = "/* ChatGPT MultiChat Monitor Color v" + version + "\n" +
+    let css = "/* ChatGPT MultiChat Monitor Color\n" +
       "   Vivaldi Custom UI CSS. Place this file in the chosen CSS folder.\n" +
       "   Extension settings DO NOT dynamically change the browser tab UI.\n" +
       "   Requires Vivaldi CSS modifications and browser restart.\n" +

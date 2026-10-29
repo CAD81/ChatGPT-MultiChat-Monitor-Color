@@ -189,14 +189,14 @@ generation, compare the floating monitor's status for the same chat with the
 favicon and report whether both stay Idle; ChatGPT uses varying UI structures.
 
 The status **favicon** is colored by the extension. For the full tab
-background, install the separate versioned Vivaldi CSS asset below.
+background, install the stable Vivaldi CSS file below. Replace that file only when its CSS rules change.
 That CSS is experimental and may not work in every Vivaldi release.
 
 ### Color the entire tab background in Vivaldi (experimental)
 
 **v0.4.8:** Open the extension popup and expand **Tab-Hintergründe (Vivaldi)**.
 Choose a color for each active status, then click **Vivaldi-CSS herunterladen**.
-The resulting `ChatGPT-MultiChat-Monitor-Color-v0.4.8-vivaldi-custom.css`
+The resulting `chatgpt-multichat-monitor-color.css`
 contains the selected colors. Replace the older .css file in your Vivaldi
 Custom UI Modifications folder and fully restart Vivaldi. These settings do
 **not** directly change the browser's native tab strip. Enable **Sichtbaren
@@ -211,14 +211,12 @@ when finished.
 background colors require a separate Vivaldi CSS modification.
 
 1. Install the extension ZIP from [Releases → Assets](https://github.com/CAD81/ChatGPT-MultiChat-Monitor-Color/releases/latest) as above.
-2. On the same release, download the separately named
-   `ChatGPT-MultiChat-Monitor-Color-vX.Y.Z-vivaldi.css` asset.
-   (The same file is also in the ZIP under `vivaldi/`.)
+2. For the initial installation, download `chatgpt-multichat-monitor-color.css` from the release assets (or use the file in the ZIP under `vivaldi/`). Keep this file across extension updates. Replace it only if the CSS rules or your selected colors actually change.
 3. In Vivaldi, open `vivaldi://experiments` and enable
    **Allow for using CSS modifications**.
 4. Create a permanent folder such as `Dokumente\VivaldiCSS` and place
    the downloaded `.css` file **directly in that folder**.
-   Only keep the newest version of this CSS file there.
+   Keep exactly one file with this permanent name; do not add version-numbered copies.
 5. In Vivaldi open `vivaldi://settings/appearance/`, find
    **Custom UI Modifications**, and select that folder.
 6. **Completely restart Vivaldi**. A working ChatGPT tab should become

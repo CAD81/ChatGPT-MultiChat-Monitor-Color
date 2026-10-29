@@ -50,14 +50,12 @@ function renderVivaldiColors() {
 }
 async function exportVivaldiCss() {
   const css = vivaldiColorsApi.generate(vivaldiColors, {
-    testOutline: vivaldiTestOutline.checked,
-    version: chrome.runtime.getManifest().version
+    testOutline: vivaldiTestOutline.checked
   });
   const url = URL.createObjectURL(new Blob([css], {type:"text/css;charset=utf-8"}));
   const link = document.createElement("a");
   link.href = url;
-  link.download = "ChatGPT-MultiChat-Monitor-Color-v" +
-    chrome.runtime.getManifest().version + "-vivaldi-custom.css";
+  link.download = "chatgpt-multichat-monitor-color.css";
   document.body.appendChild(link);
   try {
     link.click();

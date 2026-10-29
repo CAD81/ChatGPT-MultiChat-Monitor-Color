@@ -112,11 +112,11 @@ jobs:
           version="$(node -p "JSON.parse(require('node:fs').readFileSync('manifest.json','utf8')).version")"
           tag="v$version"
           filename="ChatGPT-MultiChat-Monitor-Color-v$version.zip"
-          cssfilename="ChatGPT-MultiChat-Monitor-Color-v$version-vivaldi.css"
+          cssfilename="chatgpt-multichat-monitor-color.css"
           gh release create "$tag" \
             "dist/$filename" "dist/$filename.sha256" \
             "dist/$cssfilename" "dist/$cssfilename.sha256" \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "ChatGPT MultiChat Monitor Color v$version" \
-            --notes "Extension: download the versioned ZIP from Assets, extract it, and load the directory containing manifest.json. To COLOR VIVALDI TAB BACKGROUNDS, separately download the versioned -vivaldi.css asset, enable CSS modifications in vivaldi://experiments, choose its folder under Settings > Appearance > Custom UI Modifications, and restart Vivaldi. This relies on Vivaldi exposing favicon source URLs in its tab DOM and must be tested in Vivaldi; the extension alone cannot recolor tab backgrounds. Do not reload ChatGPT tabs containing unsaved work."
+            --notes "Extension: download the versioned ZIP from Assets, extract it, and load the directory containing manifest.json. To COLOR VIVALDI TAB BACKGROUNDS, separately download the stable chatgpt-multichat-monitor-color.css asset only when the CSS rules have changed, enable CSS modifications in vivaldi://experiments, choose its folder under Settings > Appearance > Custom UI Modifications, and restart Vivaldi. This relies on Vivaldi exposing favicon source URLs in its tab DOM and must be tested in Vivaldi; the extension alone cannot recolor tab backgrounds. Do not reload ChatGPT tabs containing unsaved work."

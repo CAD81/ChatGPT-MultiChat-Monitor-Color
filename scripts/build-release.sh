@@ -78,7 +78,7 @@ if unzip -Z -1 "$archive" | grep -Eq '(^|/)(\.git|\.github|tests|scripts)(/|$)';
   exit 1
 fi
 
-cssname="ChatGPT-MultiChat-Monitor-Color-v$version-vivaldi.css"
+cssname="chatgpt-multichat-monitor-color.css"
 cp "$root/vivaldi/chatgpt-multichat-monitor-color.css" "$out_dir/$cssname"
 if ! grep -Fq 'srcset*=' "$out_dir/$cssname"; then
   echo "ERROR: Vivaldi CSS asset lacks srcset support" >&2

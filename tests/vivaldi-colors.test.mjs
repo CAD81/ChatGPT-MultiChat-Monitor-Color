@@ -45,3 +45,4 @@ test("popup exposes palette, export controls, and explains restart limitation",(
  assert.match(html,/Browser neu starten/);
  assert.match(packager,/vivaldi-colors\.js/);
 });
+\ntest("CSS content remains identical across extension versions",()=>{\n const older=api.generate(null,{version:"0.4.10"});\n const newer=api.generate(null,{version:"0.4.11"});\n assert.equal(older,newer);\n assert.doesNotMatch(older,/ChatGPT MultiChat Monitor Color v\\d/);\n assert.match(popup,/link\\.download = "chatgpt-multichat-monitor-color\\.css"/);\n assert.match(packager,/cssname="chatgpt-multichat-monitor-color\\.css"/);\n});\n
