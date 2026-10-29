@@ -105,6 +105,11 @@ function longDiagCount(value, limit = 100) {
   return Number.isFinite(Number(value))
     ? Math.max(0, Math.min(limit, Math.round(Number(value)))) : 0;
 }
+function longDiagBrowserState(url) {
+  const source = typeof url === "string" ? url : "";
+  const match = source.match(/\/assets\/tab-status\/([a-z]+)\.svg(?:$|\?)/);
+  return longDiagState(match?.[1]);
+}
 function longDiagFaviconKind(url) {
   const source = typeof url === "string" ? url : "";
   if (!source) return "missing";
@@ -123,6 +128,28 @@ async function readLongDiag() {
     await chrome.storage.session.set({ [LONG_DIAG_KEY]: recording });
   }
   return recording;
+}
+function longDiagFindings(events) {
+  const marks = (Array.isArray(events) ? events : [])
+    .filter(event => event.kind === "user-finished").slice(-20);
+  return marks.map(event => {
+    let suspected = "undetermined";
+    if (event.local === "working") {
+      if (event.stop) suspected = "stop-control-still-detected";
+      else if (event.busy) suspected = "busy-indicator-still-detected";
+      else suspected = "state-or-timer-not-completing";
+    } else if (event.local === "finished" && event.icon === "working") {
+      suspected = "document-favicon-not-updated";
+    } else if (event.local === "finished" && event.browserIcon === "working") {
+      suspected = "browser-favicon-stale";
+    } else if (event.local === "finished" && event.monitor === "working") {
+      suspected = "background-monitor-stale";
+    } else if (event.local === "finished" && event.icon === "finished" &&
+               event.browserIcon === "finished") {
+      suspected = "native-browser-tab-ui-or-css";
+    }
+    return {at:event.at,tab:event.tab,suspectedLayer:suspected};
+  });
 }
 function longDiagPublic(recording, includeEvents = false) {
   if (!recording) return {
@@ -147,7 +174,8 @@ function longDiagPublic(recording, includeEvents = false) {
     extensionVersion: chrome.runtime.getManifest().version,
     ...info,
     // No tab IDs, URLs, conversation titles, prompt text or raw DOM values.
-    events: recording.events
+    events: recording.events,
+    findings: longDiagFindings(recording.events)
   };
 }
 function longDiagSanitize(sample, tabId, record, kind) {
@@ -174,6 +202,7 @@ function longDiagSanitize(sample, tabId, record, kind) {
     busy,
     source: stop ? "stop-control" : busy ? "explicit-busy" : "none",
     favicon: longDiagFaviconKind(raw.browserFaviconUrl),
+    browserIcon: longDiagBrowserState(raw.browserFaviconUrl),
     iconLast: longDiagBool(raw.faviconLinkLast),
     hidden: longDiagBool(raw.documentHidden),
     confirmationPending: longDiagBool(raw.finishConfirmationPending),
@@ -264,7 +293,14 @@ async function longDiagReport(includeEvents) {
   }));
 }
 async function markLongDiag(tabId, sample) {
-  return addLongDiagSample(tabId, sample, "user-finished");
+  const tab = await chrome.tabs.get(tabId).catch(() => null);
+  if (!String(tab?.url || "").startsWith("https://chatgpt.com/")) {
+    return {ok:false,error:"not-chatgpt-tab"};
+  }
+  return addLongDiagSample(tabId, {
+    ...(sample && typeof sample === "object" ? sample : {}),
+    browserFaviconUrl: tab.favIconUrl || ""
+  }, "user-finished");
 }
 
 

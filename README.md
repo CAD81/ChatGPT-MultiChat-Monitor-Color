@@ -96,7 +96,11 @@ that ChatGPT tab, open the popup and click **Fertig, aber gelb markieren**.
 This is an explicit *user observation*, not an assertion made by the
 software from unseen network state. The marker and nearby samples identify
 which signal continued to report Working and whether the monitor/favicon
-agreed. When sufficient data is available, stop capture and choose
+agreed. The generated `findings` section classifies the suspected layer
+(stop control, explicit busy indicator, completion timer, document favicon,
+browser favicon, background monitor or Vivaldi UI). These are *diagnostic
+hypotheses* based on the user-marked timestamp, not proof of what the
+ChatGPT backend was doing. When sufficient data is available, stop capture and choose
 **Bericht kopieren**. The report contains only tab aliases, state labels,
 technical counters and timestamps. It excludes chat contents, titles,
 full tab IDs, URLs, cookies and DOM text. Nothing is sent automatically.

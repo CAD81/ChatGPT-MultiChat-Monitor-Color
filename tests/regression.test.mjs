@@ -120,7 +120,7 @@ async function loadBackground(options = {}) {
     " ensureInitialized, upsertState, activeRunForTab, queueActiveRunsPersist, chatKeyFromUrl, tabColorPendingFor," +
     " activateTab, setChatOrder, setChatPreference, prefsFor, handleTabUpdated, handleTabRemoved, rebuildRegistry, ensureOffscreen, snapshot, signalLayoutLockedInActiveTab, resetMonitorPosition, resetMonitorSize, resetChatOrder, resetLayout," +
     " getChat(tabId) { return chats.get(tabId) || null; }," +
-    " startLongDiag, stopLongDiag, longDiagReport, addLongDiagSample, appendLongDiagEvent, longDiagSanitize" +
+    " startLongDiag, stopLongDiag, longDiagReport, addLongDiagSample, appendLongDiagEvent, longDiagSanitize, longDiagFindings" +
     "};";
 
   vm.createContext(sandbox);
@@ -1340,4 +1340,41 @@ test("long recorder rejects unknown event states, invalid duration and honors st
   assert.equal(record.kind,"heartbeat");
   assert.equal(record.favicon,"other");
   assert.equal(JSON.stringify(record).includes("private.example"),false);
+});
+
+
+test("user-confirmed completion reports the specific stuck layer rather than guessing", async () => {
+  const {api} = await loadBackground();
+  const now = new Date().toISOString();
+  const base = {at:now,tab:"Tab 1",kind:"user-finished",
+    local:"working",icon:"working",browserIcon:"working",monitor:"working",
+    stop:false,busy:true};
+  assert.equal(api.longDiagFindings([base])[0].suspectedLayer,"busy-indicator-still-detected");
+  assert.equal(api.longDiagFindings([{...base,stop:true}])[0].suspectedLayer,
+    "stop-control-still-detected");
+  assert.equal(api.longDiagFindings([{...base,busy:false}])[0].suspectedLayer,
+    "state-or-timer-not-completing");
+  assert.equal(api.longDiagFindings([{...base,local:"finished",icon:"working"}])[0].suspectedLayer,
+    "document-favicon-not-updated");
+  assert.equal(api.longDiagFindings([{...base,local:"finished",icon:"finished",browserIcon:"working"}])[0].suspectedLayer,
+    "browser-favicon-stale");
+  assert.equal(api.longDiagFindings([{...base,local:"finished",icon:"finished",browserIcon:"finished",monitor:"working"}])[0].suspectedLayer,
+    "background-monitor-stale");
+  assert.equal(api.longDiagFindings([{...base,local:"finished",icon:"finished",browserIcon:"finished",monitor:"finished"}])[0].suspectedLayer,
+    "native-browser-tab-ui-or-css");
+});
+
+test("focused finished tab remains Finished following a real monitor-state message", async () => {
+  const tab = { id: 334, windowId: 1, active: true,
+    url: "https://chatgpt.com/c/focused-finish", title: "Example" };
+  const { api, events } = await loadBackground({ tabs: [tab] });
+  assert.equal((await dispatchBackgroundMessage(events, {
+    type: "monitor-state", state: "working", url: tab.url,
+    startedAt: Date.now() - 1000
+  }, { tab })).ok, true);
+  assert.equal(api.getChat(tab.id)?.state, "working");
+  assert.equal((await dispatchBackgroundMessage(events, {
+    type: "monitor-state", state: "finished", url: tab.url, finishedAt: Date.now()
+  }, { tab })).ok, true);
+  assert.equal(api.getChat(tab.id)?.state, "finished");
 });
