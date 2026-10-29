@@ -54,6 +54,7 @@
   let diagnosticLastEvaluatedAt = 0;
   const diagnosticTransitions = [];
   let diagnosticCaptureEndsAt = 0;
+  let lastLongHeartbeatAt = 0;
   let diagnosticMainMutationCount = 0;
   let diagnosticLastMainMutationAt = 0;
   const LONG_DIAGNOSTIC_SAMPLE_MS = 10000;
@@ -2742,6 +2743,13 @@
       diagnosticCaptureEndsAt = 0;
       return;
     }
+    // Full 10-second sampling of Working (including false Working); nonworking
+    // tabs heartbeat only once a minute, preserving capacity across many tabs.
+    if (kind !== "transition") {
+      if (localState.state !== "working" &&
+          Date.now() - lastLongHeartbeatAt < 60000) return;
+      lastLongHeartbeatAt = Date.now();
+    }
     // Only a strict allowlist of already-sanitized signals is sent. The
     // background service worker applies a second allowlist before storage.
     const diagnostic = statusDiagnostics();
@@ -2772,6 +2780,7 @@
 
   function configureLongDiagnostics(message) {
     const end = Number(message?.endsAt);
+    if (Number(message?.endsAt) !== diagnosticCaptureEndsAt) lastLongHeartbeatAt = 0;
     diagnosticCaptureEndsAt = message?.active === true &&
       Number.isFinite(end) && end > Date.now() &&
       end - Date.now() <= 2 * 60 * 60 * 1000 + 60000

@@ -151,6 +151,41 @@ function longDiagFindings(events) {
     return {at:event.at,tab:event.tab,suspectedLayer:suspected};
   });
 }
+function longDiagAutomaticChecks(events) {
+  // Anomaly detections are hints based on repeated technical signals.
+  // No conclusion about actual server completion is made without a marker.
+  const streaks = new Map();
+  const alerts = [];
+  for (const e of (Array.isArray(events) ? events : [])) {
+    if (e.kind === "user-finished") continue;
+    let issue = "";
+    if (e.local === "working" && !e.stop && !e.busy &&
+        !e.restoreGrace && !e.confirmationPending) {
+      issue = "working-without-visible-active-signal";
+    } else if (e.local === "working" && !e.stop && e.busy &&
+               e.mainMutationAgeMs >= 90000) {
+      issue = "busy-indicator-without-recent-main-updates";
+    } else if (e.local === "finished" && e.icon === "working") {
+      issue = "finished-but-document-icon-working";
+    } else if (e.local === "finished" && e.browserIcon === "working") {
+      issue = "finished-but-browser-favicon-working";
+    } else if (e.local === "finished" && e.monitor === "working") {
+      issue = "finished-but-monitor-working";
+    }
+    const prior = streaks.get(e.tab);
+    const run = prior && prior.issue === issue ?
+      {issue, count:prior.count + 1, first:prior.first, last:e.at} :
+      {issue, count:1, first:e.at, last:e.at};
+    streaks.set(e.tab,run);
+    if (issue && run.count === 3) {
+      alerts.push({tab:e.tab,kind:issue,first:run.first,last:run.last,count:run.count});
+    } else if (issue && run.count > 3) {
+      const current = alerts.findLast?.(a => a.tab === e.tab && a.kind === issue);
+      if (current) {current.last = run.last;current.count = run.count;}
+    }
+  }
+  return alerts.slice(-30);
+}
 function longDiagPublic(recording, includeEvents = false) {
   if (!recording) return {
     active: false, startedAt: null, endsAt: null,
@@ -175,7 +210,8 @@ function longDiagPublic(recording, includeEvents = false) {
     ...info,
     // No tab IDs, URLs, conversation titles, prompt text or raw DOM values.
     events: recording.events,
-    findings: longDiagFindings(recording.events)
+    findings: longDiagFindings(recording.events),
+    automaticChecks: longDiagAutomaticChecks(recording.events)
   };
 }
 function longDiagSanitize(sample, tabId, record, kind) {
@@ -270,7 +306,14 @@ async function startLongDiag(requestedMinutes) {
     stoppedAt:null, durationMinutes:minutes,
     events:[],tabAliases:{},received:0,dropped:0
   };
-  await withLongDiagLock(() => chrome.storage.session.set({[LONG_DIAG_KEY]:recording}));
+  const written = await withLongDiagLock(async () => {
+    const previous = await readLongDiag();
+    // Never silently discard a previous diagnostic recording.
+    if (previous?.active || previous?.received > 0) return false;
+    await chrome.storage.session.set({[LONG_DIAG_KEY]:recording});
+    return true;
+  });
+  if (!written) return {ok:false,error:"existing-recording"};
   const tabs = await broadcastLongDiagConfig(true,recording.endsAt);
   return {ok:true,...longDiagPublic(recording),...tabs};
 }

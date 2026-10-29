@@ -120,7 +120,7 @@ async function loadBackground(options = {}) {
     " ensureInitialized, upsertState, activeRunForTab, queueActiveRunsPersist, chatKeyFromUrl, tabColorPendingFor," +
     " activateTab, setChatOrder, setChatPreference, prefsFor, handleTabUpdated, handleTabRemoved, rebuildRegistry, ensureOffscreen, snapshot, signalLayoutLockedInActiveTab, resetMonitorPosition, resetMonitorSize, resetChatOrder, resetLayout," +
     " getChat(tabId) { return chats.get(tabId) || null; }," +
-    " startLongDiag, stopLongDiag, longDiagReport, addLongDiagSample, appendLongDiagEvent, longDiagSanitize, longDiagFindings" +
+    " startLongDiag, stopLongDiag, longDiagReport, addLongDiagSample, appendLongDiagEvent, longDiagSanitize, longDiagFindings, longDiagAutomaticChecks" +
     "};";
 
   vm.createContext(sandbox);
@@ -1377,4 +1377,50 @@ test("focused finished tab remains Finished following a real monitor-state messa
     type: "monitor-state", state: "finished", url: tab.url, finishedAt: Date.now()
   }, { tab })).ok, true);
   assert.equal(api.getChat(tab.id)?.state, "finished");
+});
+
+
+test("repeated stale active signals are surfaced as bounded diagnostic anomalies", async () => {
+  const {api} = await loadBackground();
+  const event = (i, patch={}) => ({
+    at:new Date(Date.now() + i*10000).toISOString(),
+    tab:"Tab 1",kind:"heartbeat",local:"working",
+    stop:false,busy:false,restoreGrace:false,confirmationPending:false,
+    icon:"working",browserIcon:"working",monitor:"working",
+    mainMutationAgeMs:125000, ...patch
+  });
+  assert.equal(api.longDiagAutomaticChecks([event(0),event(1)]).length,0);
+  const anomalies = api.longDiagAutomaticChecks([event(0),event(1),event(2),event(3)]);
+  assert.equal(anomalies.length,1);
+  assert.equal(anomalies[0].kind,"working-without-visible-active-signal");
+  assert.equal(anomalies[0].count,4);
+  const busy = api.longDiagAutomaticChecks([
+    event(0,{busy:true}),event(1,{busy:true}),event(2,{busy:true})
+  ]);
+  assert.equal(busy[0].kind,"busy-indicator-without-recent-main-updates");
+  const finished = api.longDiagAutomaticChecks([
+    event(0,{local:"finished",icon:"working"}),
+    event(1,{local:"finished",icon:"working"}),
+    event(2,{local:"finished",icon:"working"})
+  ]);
+  assert.equal(finished[0].kind,"finished-but-document-icon-working");
+});
+
+test("starting a second recording cannot destroy the previous uncopied session", async () => {
+  const {api}=await loadBackground();
+  assert.equal((await api.startLongDiag(15)).ok,true);
+  assert.equal((await api.startLongDiag(60)).error,"existing-recording");
+  assert.equal((await api.stopLongDiag()).ok,true);
+  assert.equal((await api.startLongDiag(60)).ok,true,
+    "empty stopped capture may be safely replaced");
+  await api.addLongDiagSample(31,{localState:"working",iconState:"working"},"heartbeat");
+  await api.stopLongDiag();
+  assert.equal((await api.startLongDiag(60)).error,"existing-recording");
+});
+
+test("long recording prioritizes ten-second Working probes and limits idle probes to a minute", () => {
+  const fn = functionSource(contentSource,"sendLongDiagnosticSample");
+  assert.match(fn,/localState\.state !== "working"/);
+  assert.match(fn,/Date\.now\(\) - lastLongHeartbeatAt < 60000/);
+  assert.match(contentSource,/if \(previousState !== state\) sendLongDiagnosticSample\("transition"\)/);
 });

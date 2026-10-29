@@ -104,7 +104,13 @@ ChatGPT backend was doing. When sufficient data is available, stop capture and c
 **Bericht kopieren**. The report contains only tab aliases, state labels,
 technical counters and timestamps. It excludes chat contents, titles,
 full tab IDs, URLs, cookies and DOM text. Nothing is sent automatically.
+Working tabs are sampled approximately every 10 seconds, nonworking tabs
+about once per minute to preserve capacity across large tab collections.
 Maximum 2,500 most recent samples are kept (older events count as dropped).
+The report includes automatic anomaly checks for repeated stale states and
+the findings from any explicit user-completed markers. Save the JSON report
+before starting another capture: the previous recording must be explicitly
+deleted first.
 You may delete the recording at any time via **Aufzeichnung löschen**.
 Session data is lost on browser restart.
 
