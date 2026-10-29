@@ -13,8 +13,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/JoelMomo/chatgpt-multichat-monitor/releases">
-    <img src="https://img.shields.io/github/v/release/JoelMomo/chatgpt-multichat-monitor?style=flat-square" alt="Latest release">
+  <a href="https://github.com/CAD81/ChatGPT-MultiChat-Monitor-Color/releases">
+    <img src="https://img.shields.io/github/v/release/CAD81/ChatGPT-MultiChat-Monitor-Color?style=flat-square" alt="Latest release">
   </a>
   <a href="https://joelmomo.github.io/">
     <img src="https://img.shields.io/badge/Apps%20%26%20tools-Browse-6F8F72?style=flat-square" alt="Browse apps and tools">
@@ -51,10 +51,28 @@ tab-scoped snapshot; it takes effect only while a tab is otherwise idle.
 be classified. A quota error that ChatGPT does not expose to the page cannot be
 reliably detected.
 
+### Versioned downloads
+
+GitHub's **Code → Download ZIP** produces a source archive named after the
+repository and branch, so its filename does not show the extension version.
+Use **[Releases → Assets](https://github.com/CAD81/ChatGPT-MultiChat-Monitor-Color/releases/latest)**
+instead: `ChatGPT-MultiChat-Monitor-Color-vX.Y.Z.zip` is the ready-to-install
+extension ZIP. It has no enclosing folder and includes `VERSION.txt` and
+`manifest.json` at the ZIP root.
+
+A versioned release is built automatically after `main` passes GitHub
+Actions regression tests, **provided the manifest version is new**. Rebuilding
+the same version will not replace an already published release. On Linux,
+`bash scripts/build-release.sh` produces and validates the same ZIP and
+its SHA-256 checksum.
+
 ### Installing in Vivaldi
 
-1. Download this fork as a ZIP from GitHub, unpack it, and keep the extracted
-   folder in a permanent location.
+1. Open [Releases](https://github.com/CAD81/ChatGPT-MultiChat-Monitor-Color/releases/latest)
+   and download the versioned `ChatGPT-MultiChat-Monitor-Color-vX.Y.Z.zip`
+   file under **Assets** (not GitHub's **Code → Download ZIP**).
+   Unpack it into a permanent extension folder. `manifest.json` and
+   `VERSION.txt` are at the ZIP root.
 2. Open `vivaldi://extensions`, enable Developer mode and select **Load
    unpacked**. Choose the folder containing `manifest.json`.
 3. Reload previously open ChatGPT tabs **manually** when convenient; do not
@@ -343,7 +361,7 @@ The popup keeps a small local history:
 
 ## Install
 
-1. Open the latest GitHub release and download the `chatgpt-multichat-monitor-vX.Y.Z.zip` asset.
+1. Open the [latest release](https://github.com/CAD81/ChatGPT-MultiChat-Monitor-Color/releases/latest) and download the `ChatGPT-MultiChat-Monitor-Color-vX.Y.Z.zip` asset, not the automatically generated source-code ZIP. The right ZIP includes `VERSION.txt` and `manifest.json` at its root.
 2. Extract the ZIP to a permanent folder.
 3. Open `edge://extensions/` or `chrome://extensions/`.
 4. Enable **Developer mode**.

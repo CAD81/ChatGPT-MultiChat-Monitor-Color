@@ -35,3 +35,5 @@ jobs:
           node -e "JSON.parse(require('node:fs').readFileSync('manifest.json', 'utf8'))"
       - name: Run dependency-free regression harness
         run: node --test tests/*.test.mjs
+      - name: Validate versioned extension release ZIP
+        run: bash scripts/build-release.sh

@@ -1,0 +1,88 @@
+name: Publish versioned extension ZIP
+
+# Releases are created after successful main-branch regression CI.
+on:
+  workflow_run:
+    workflows: ["Regression"]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: versioned-extension-releases
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out the exact validated commit
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          package-manager-cache: false
+      - name: Confirm source is current main
+        id: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          remote="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')"
+          if [[ "$actual" != "$remote" ]]; then
+            echo "Validated commit is no longer current main. Skipping obsolete release."
+            echo "current=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "current=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Validate code for manual publishing
+        if: steps.source.outputs.current == 'true' && github.event_name == 'workflow_dispatch'
+        run: |
+          node --check background.js
+          node --check content.js
+          node --check tab-status.js
+          node --check popup.js
+          node --check offscreen.js
+          node --test tests/*.test.mjs
+      - name: Package and verify extension ZIP
+        if: steps.source.outputs.current == 'true'
+        run: bash scripts/build-release.sh
+      - name: Publish versioned GitHub Release
+        if: steps.source.outputs.current == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version="$(node -p "JSON.parse(require('node:fs').readFileSync('manifest.json','utf8')).version")"
+          tag="v$version"
+          filename="ChatGPT-MultiChat-Monitor-Color-v$version.zip"
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $tag already exists. Existing published assets are immutable."
+            exit 0
+          fi
+          if tag_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" --jq '.object.sha' 2>/dev/null)"; then
+            if [[ "$tag_sha" != "$(git rev-parse HEAD)" ]]; then
+              echo "ERROR: existing release tag $tag points elsewhere." >&2
+              exit 1
+            fi
+          fi
+          gh release create "$tag" \
+            "dist/$filename" "dist/$filename.sha256" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$(git rev-parse HEAD)" \
+            --title "ChatGPT MultiChat Monitor Color v$version" \
+            --notes "Ready-to-install extension for Vivaldi / Chrome / Edge. Download the versioned ZIP from Assets, extract it, and load the directory containing manifest.json. VERSION.txt inside the ZIP confirms the version. To update an unpacked installation, replace the files and reload the extension. Only refresh ChatGPT tabs when no unsaved work can be lost."
