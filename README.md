@@ -60,8 +60,8 @@ instead: `ChatGPT-MultiChat-Monitor-Color-vX.Y.Z.zip` is the ready-to-install
 extension ZIP. It has no enclosing folder and includes `VERSION.txt` and
 `manifest.json` at the ZIP root.
 
-A versioned release is published automatically **only** after an explicit
-`release/request.json` commit on `main`. ChatGPT/Codex performs tests outside
+A versioned release is published automatically **only** after an explicitly
+approved, standalone `release/request.json` commit on `main` with `ready: true`. ChatGPT/Codex performs tests outside
 GitHub Actions; regular code pushes and pull requests do not run GitHub tests.
 Existing releases are never replaced. See [release automation](docs/RELEASE_AUTOMATION.md).
 On Linux, `bash scripts/build-release.sh` packages and validates the ZIP
