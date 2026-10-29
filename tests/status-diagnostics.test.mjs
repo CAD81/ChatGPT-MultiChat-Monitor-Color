@@ -104,3 +104,31 @@ test("status UI and report remain local until a user explicitly clicks Copy", ()
   assert.match(popupJs, /new Promise\(\(resolve\) => setTimeout\(resolve, 1000\)\)/);
   assert.doesNotMatch(popupJs, /fetch\(["']https?:\/\/|innerHTML\s*=/);
 });
+
+
+test("tab diagnostics exposes a stale actual browser favicon without disclosing its URL", () => {
+  const result = makeSample({
+    scriptVersion:"0.4.10",initialized:true,localState:"finished",
+    iconState:"finished",visualState:"finished",
+    faviconHealth:{browserState:"working",checked:5,mismatches:3,
+      repairs:2,confirmed:false,limitReached:false,url:"private-secret"}
+  },{state:"finished"},
+  "chrome-extension://private-secret/assets/tab-status/working.svg?gptmm=999", "0.4.10");
+  assert.equal(result.browserIconState,"working");
+  assert.equal(result.faviconHealth.repairs,2);
+  assert.match(diagnosis(result),/Browser-Favicon veraltet/);
+  assert.equal(JSON.stringify(result).includes("private-secret"),false);
+  assert.equal(JSON.stringify(result).includes("999"),false);
+});
+
+test("tab diagnostic report classifies successful native favicon update", () => {
+  const result = makeSample({
+    scriptVersion:"0.4.10",initialized:true,localState:"finished",
+    visualState:"finished",iconState:"finished",
+    faviconHealth:{browserState:"finished",repairs:1,confirmed:true}
+  },{state:"finished"},
+  "chrome-extension://private-id/assets/tab-status/finished.svg?gptmm=123", "0.4.10");
+  assert.equal(result.browserIconState,"finished");
+  assert.match(diagnosis(result),/Browser-Favicon übereinstimmend/);
+  assert.equal(result.faviconHealth.confirmed,true);
+});

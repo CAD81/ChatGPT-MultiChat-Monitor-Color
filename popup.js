@@ -339,7 +339,10 @@ function renderDiagnosticSample(sample) {
   tabDiagnostics.replaceChildren();
   appendDiagnostic("Erkennung", statusName(sample.localState));
   appendDiagnostic("Monitor", statusName(sample.monitorState));
-  appendDiagnostic("Tab-Symbol", statusName(sample.iconState));
+  appendDiagnostic("Tab-Symbol im Seitendokument", statusName(sample.iconState));
+  appendDiagnostic("Browser meldet Symbol", statusName(sample.browserIconState));
+  appendDiagnostic("Browser-Symbol bestätigt", sample.faviconHealth.confirmed ? "Ja" : "Nein");
+  appendDiagnostic("Automatische Reparaturen", String(sample.faviconHealth.repairs));
   appendDiagnostic("Skriptversion", sample.scriptVersion);
   appendDiagnostic("Stopp-Button erkannt", sample.stopButtonVisible ? "Ja" : "Nein");
   appendDiagnostic("Arbeitsanzeige", sample.progressIndicatorVisible ? "Ja" : "Nein");

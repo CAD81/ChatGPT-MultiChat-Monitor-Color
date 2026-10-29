@@ -21,10 +21,18 @@
     return "other-icon";
   }
 
+  function browserIconState(value) {
+    const url = typeof value === "string" ? value : "";
+    const match = url.match(/\/assets\/tab-status\/([a-z]+)\.svg(?:$|\?)/);
+    return STATUS(match?.[1]);
+  }
+
   function makeSample(local = {}, monitor = null, favIconUrl = "", extensionVersion = "") {
     // A bounded report with only known structured fields. Never spread local,
     // monitor or tab objects as those may contain sensitive conversation data.
     const inventory = local.signalInventory || {};
+    const health = local.faviconHealth && typeof local.faviconHealth === "object"
+      ? local.faviconHealth : {};
     return {
       extensionVersion: /^\d+\.\d+\.\d+$/.test(extensionVersion) ? extensionVersion : "unknown",
       scriptVersion: /^\d+\.\d+\.\d+$/.test(local.scriptVersion || "")
@@ -36,6 +44,15 @@
       iconState: STATUS(local.iconState),
       faviconLinkLast: BOOL(local.faviconLinkLast),
       browserFaviconKind: faviconKind(favIconUrl),
+      browserIconState: browserIconState(favIconUrl),
+      faviconHealth: {
+        browserState: STATUS(health.browserState),
+        checks: CAP(health.checked, 100000),
+        mismatches: CAP(health.mismatches, 100000),
+        repairs: CAP(health.repairs, 10),
+        confirmed: BOOL(health.confirmed),
+        limitReached: BOOL(health.limitReached)
+      },
       stopButtonVisible: BOOL(local.stopButtonVisible),
       progressIndicatorVisible: BOOL(local.progressIndicatorVisible),
       recentWorkingEvidence: BOOL(local.recentWorkingEvidence),
@@ -46,6 +63,9 @@
         visibleComposerButtons: CAP(inventory.visibleComposerButtons, 100),
         squareStopCandidates: CAP(inventory.squareStopCandidates, 100),
         recognizedStopButtons: CAP(inventory.recognizedStopButtons, 100),
+        stopInsideComposer: CAP(inventory.stopInsideComposer, 100),
+        stopOutsideComposer: CAP(inventory.stopOutsideComposer, 100),
+        staleProneMarkers: CAP(inventory.staleProneMarkers, 100),
         visibleBusyIndicators: CAP(inventory.visibleBusyIndicators, 100)
       },
       transitions: (Array.isArray(local.transitions) ? local.transitions : [])
@@ -72,8 +92,19 @@
         !(sample.localState === "idle" && sample.visualState === "pending" && sample.iconState === "pending")) {
       return "Favicon stimmt nicht mit dem erkannten Status überein.";
     }
+    if (sample.browserIconState !== "unknown" &&
+        sample.browserIconState !== sample.visualState) {
+      const suffix = sample.faviconHealth.limitReached
+        ? " Drei Reparaturversuche ausgeschöpft."
+        : " Automatische Korrektur wird geprüft.";
+      return "Browser-Favicon veraltet: Seite meldet " + sample.visualState +
+        ", Vivaldi meldet " + sample.browserIconState + "." + suffix;
+    }
     if (sample.localState === "working" && sample.monitorState !== "working") {
       return "Monitor hat den lokalen Arbeitsstatus nicht übernommen.";
+    }
+    if (sample.localState === "finished" && sample.browserIconState === "finished") {
+      return "Fertig und Browser-Favicon übereinstimmend. Bei falscher Tab-Hintergrundfarbe Vivaldi-CSS prüfen.";
     }
     if (sample.localState === "working" && sample.iconState === "working") {
       return "Arbeit und Favicon erkannt. Bei weiterhin grauem Tab-Hintergrund liegt der nächste Prüfschritt bei Vivaldi-CSS.";
