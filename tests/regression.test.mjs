@@ -119,7 +119,8 @@ async function loadBackground(options = {}) {
     "\nglobalThis.__testApi = {" +
     " ensureInitialized, upsertState, activeRunForTab, queueActiveRunsPersist, chatKeyFromUrl, tabColorPendingFor," +
     " activateTab, setChatOrder, setChatPreference, prefsFor, handleTabUpdated, handleTabRemoved, rebuildRegistry, ensureOffscreen, snapshot, signalLayoutLockedInActiveTab, resetMonitorPosition, resetMonitorSize, resetChatOrder, resetLayout," +
-    " getChat(tabId) { return chats.get(tabId) || null; }" +
+    " getChat(tabId) { return chats.get(tabId) || null; }," +
+    " startLongDiag, stopLongDiag, longDiagReport, addLongDiagSample, appendLongDiagEvent, longDiagSanitize" +
     "};";
 
   vm.createContext(sandbox);
@@ -1274,4 +1275,69 @@ test("long diagnostic sanitization stores only known signal fields; no page cont
   assert.match(source, /kind === "user-finished"/);
   assert.match(backgroundSource, /function withLongDiagLock/);
   assert.match(backgroundSource, /recording\.events\.splice\(0, recording\.events\.length - LONG_DIAG_MAX_EVENTS\)/);
+});
+
+
+test("long recorder actually captures while popup is closed and survives service-worker reinitialization", async () => {
+  const tab = {id:1001, windowId:1, url:"https://chatgpt.com/c/long-test", title:"private title"};
+  const {api, sessionStorage} = await loadBackground({tabs:[tab]});
+  const start = await api.startLongDiag(60);
+  assert.equal(start.ok, true);
+  assert.equal(start.active, true);
+  assert.equal(start.sampleIntervalMs, 10000);
+  api.upsertState({state:"working",url:tab.url,startedAt:Date.now()-1000},tab);
+  const payload = {
+    scriptVersion:"0.4.9", localState:"working",visualState:"working",
+    iconState:"working",stopButtonVisible:true,
+    progressIndicatorVisible:false,documentHidden:false,
+    mainMutationCount:10,mainMutationAgeMs:10,
+    workingEvidenceAgeMs:100,finishConfirmationPending:false,
+    signalInventory: {staleProneMarkers:4,recognizedStopButtons:1},
+    userText:"SECRET CONTENT", title:"SECRET CONTENT",
+    url:"https://very-secret.invalid/SECRET CONTENT"
+  };
+  assert.equal((await api.addLongDiagSample(tab.id,payload,"heartbeat")).ok, true);
+  assert.equal((await api.addLongDiagSample(tab.id,payload,"user-finished")).ok, true);
+  const first = (await api.longDiagReport(true)).report;
+  assert.equal(first.received, 2);
+  assert.equal(first.events[0].local,"working");
+  assert.equal(first.events[0].monitor,"working");
+  assert.equal(first.events[0].counters.staleMarkers,4);
+  assert.equal(first.events[1].kind,"user-finished");
+  assert.equal(first.events[1].tab,"Tab 1");
+  assert.equal(JSON.stringify(first).includes("SECRET CONTENT"),false);
+  assert.equal(JSON.stringify(first).includes("long-test"),false);
+  assert.equal(JSON.stringify(first).includes("1001"),false);
+  const restarted = await loadBackground({tabs:[tab],storedSession:sessionStorage});
+  const after = (await restarted.api.longDiagReport(true)).report;
+  assert.equal(after.received,2);
+  assert.equal(after.events[1].kind,"user-finished");
+  const stopped = await restarted.api.stopLongDiag();
+  assert.equal(stopped.active,false);
+  assert.equal((await restarted.api.longDiagReport(true)).report.events.length,2);
+});
+
+test("long recorder rejects unknown event states, invalid duration and honors storage cap", async () => {
+  const {api} = await loadBackground();
+  const bad = await api.startLongDiag(9999);
+  assert.equal(bad.ok,false);
+  const obj = {events:[],received:0,dropped:0};
+  for(let i=0;i<2504;i+=1) api.appendLongDiagEvent(obj,{at:i});
+  assert.equal(obj.events.length,2500);
+  assert.equal(obj.dropped,4);
+  const fake = {tabAliases:{},events:[],received:0,dropped:0};
+  const record = api.longDiagSanitize({
+    localState:"secret",iconState:"secret",
+    signalInventory:{recognizedStopButtons:10000,staleProneMarkers:3},
+    browserFaviconUrl:"https://private.example/private",
+    title:"secret title",
+    url:"https://private.example"
+  },19,fake,"secret");
+  assert.equal(record.local,"unknown");
+  assert.equal(record.icon,"unknown");
+  assert.equal(record.counters.stopControls,100);
+  assert.equal(record.counters.staleMarkers,3);
+  assert.equal(record.kind,"heartbeat");
+  assert.equal(record.favicon,"other");
+  assert.equal(JSON.stringify(record).includes("private.example"),false);
 });

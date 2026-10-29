@@ -2943,6 +2943,12 @@
     if (!document.hidden) {
       updateTimeLabels();
       scheduleEvaluate();
+      // A sleeping tab may have missed the broadcast when recording began.
+      if (!diagnosticCaptureEndsAt) {
+        sendMessage({ type: "monitor-diagnostic-current" }).then((recording) => {
+          if (recording?.active) configureLongDiagnostics(recording);
+        });
+      }
     }
   });
 

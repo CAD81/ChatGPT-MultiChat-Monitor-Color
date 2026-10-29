@@ -1784,7 +1784,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
   if (message?.type === "monitor-diagnostic-sample") {
-    addLongDiagSample(sender.tab?.id, message.sample, message.kind)
+    addLongDiagSample(sender.tab?.id, {
+      ...(message.sample && typeof message.sample === "object" ? message.sample : {}),
+      browserFaviconUrl: sender.tab?.favIconUrl || ""
+    }, message.kind)
       .then(sendResponse)
       .catch(() => sendResponse({ok:false}));
     return true;
