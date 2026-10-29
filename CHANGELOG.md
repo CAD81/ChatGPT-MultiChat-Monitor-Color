@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Handle an invalidated extension context after Vivaldi reload/update: guard the floating monitor's manifest-version lookup and all content-script preference writes against synchronous errors and rejected promises. Existing ChatGPT tabs still need a manual refresh after saving drafts; no automatic reload was added.
+- Correct the content-script diagnostics version to match the packaged 0.4.10 manifest and add regression coverage for invalidated runtime/storage APIs.
+
 ## 0.4.10 - 2026-10-29 (Favicon reconciliation reliability)
 
 - Analyzed the user-provided 60-minute/1,467-event v0.4.9 browser log. A total of 110 Finished samples retained a browser-reported Working favicon while the page icon and background monitor both reported Finished.

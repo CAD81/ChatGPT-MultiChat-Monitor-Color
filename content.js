@@ -4,7 +4,7 @@
 
   const FINISH_CONFIRM_MS = 1400;
   const WORKING_SIGNAL_GRACE_MS = 3500;
-  const CONTENT_SCRIPT_VERSION = "0.4.9";
+  const CONTENT_SCRIPT_VERSION = "0.4.10";
   const RECENT_TTL_MS = 180000;
   const ATTENTION_TTL_MS = 30 * 60 * 1000;
   const ERROR_TTL_MS = 10 * 60 * 1000;
@@ -13,6 +13,23 @@
   const ERROR_SCAN_MS = 1000;
   const LATE_ISSUE_GRACE_MS = 10000;
   const WORK_PHASE_GRACE_MS = 1600;
+
+  // Extension reloads invalidate the old content-script context until the tab reloads.
+  function extensionVersionLabel() {
+    try {
+      const version = chrome.runtime.getManifest().version;
+      return typeof version === "string" && version ? version : CONTENT_SCRIPT_VERSION;
+    } catch {
+      return CONTENT_SCRIPT_VERSION + " (Tab neu laden)";
+    }
+  }
+
+  function persistLocalPreferences(values) {
+    try {
+      const pending = chrome.storage.local.set(values);
+      if (pending && typeof pending.catch === "function") pending.catch(() => {});
+    } catch {}
+  }
 
   const DEFAULTS = {
     monitorEnabled: true,
@@ -2200,7 +2217,7 @@
       dragging = null;
       panel.classList.remove("dragging");
       const rect = panel.getBoundingClientRect();
-      chrome.storage.local.set({
+      persistLocalPreferences({
         monitorPosition: {
           x: Math.round(rect.left),
           y: Math.round(rect.top)
@@ -2242,7 +2259,7 @@
         height: Math.round(rect.height)
       };
       settings.monitorSize = next;
-      chrome.storage.local.set({ monitorSize: next });
+      persistLocalPreferences({ monitorSize: next });
     };
 
     resizeHandle.addEventListener("mousedown", (event) => {
@@ -2442,9 +2459,10 @@
 
     const versionLabel = document.createElement("span");
     versionLabel.className = "version-label";
-    versionLabel.textContent = "v" + chrome.runtime.getManifest().version;
-    versionLabel.title = "Extension version " + chrome.runtime.getManifest().version;
-    versionLabel.setAttribute("aria-label", "Extension version " + chrome.runtime.getManifest().version);
+    const version = extensionVersionLabel();
+    versionLabel.textContent = "v" + version;
+    versionLabel.title = "Extension version " + version;
+    versionLabel.setAttribute("aria-label", "Extension version " + version);
 
     autoSizeButton = document.createElement("button");
     autoSizeButton.className = "auto-size-button";
@@ -2551,7 +2569,7 @@
     lockButton.addEventListener("click", (event) => {
       event.stopPropagation();
       settings.monitorLayoutLocked = !layoutLocked();
-      chrome.storage.local.set({
+      persistLocalPreferences({
         monitorLayoutLocked: settings.monitorLayoutLocked
       });
       if (layoutLocked()) hideLayoutUndo();
@@ -2562,7 +2580,7 @@
 
     collapseButton.addEventListener("click", () => {
       settings.monitorCollapsed = !settings.monitorCollapsed;
-      chrome.storage.local.set({
+      persistLocalPreferences({
         monitorCollapsed: settings.monitorCollapsed
       });
       render();
@@ -2572,7 +2590,7 @@
       event.stopPropagation();
       if (layoutLocked()) return;
       settings.monitorSize = null;
-      chrome.storage.local.set({ monitorSize: null });
+      persistLocalPreferences({ monitorSize: null });
       render();
       applyPosition(settings.monitorPosition);
     });
@@ -2940,7 +2958,7 @@
 
     if (message?.type === "monitor-toggle-overlay") {
       settings.monitorEnabled = !settings.monitorEnabled;
-      chrome.storage.local.set({
+      persistLocalPreferences({
         monitorEnabled: settings.monitorEnabled
       });
       render();
