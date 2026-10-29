@@ -1150,16 +1150,20 @@ test("diagnostics only expose statuses and technical signals, not conversation c
 });
 
 
-test("popup status diagnostics only request active-tab technical status and registry state", () => {
+test("popup offers bounded live measurement and explicit technical-report copy", () => {
   const html = fs.readFileSync(path.join(root, "popup.html"), "utf8");
   assert.match(html, /id="tabDiagnostics"/);
   assert.match(html, /id="refreshTabDiagnostics"/);
+  assert.match(html, /id="captureTabDiagnostics"/);
+  assert.match(html, /id="copyTabDiagnostics"/);
+  assert.match(html, /status-diagnostics\.js/);
   assert.match(popupSource, /type: "monitor-get-status-diagnostics"/);
   assert.match(popupSource, /type: "monitor-get-snapshot"/);
   assert.match(popupSource, /chrome\.tabs\.query\(\{ active: true, currentWindow: true \}\)/);
-  assert.match(popupSource, /local\.scriptVersion !== installedVersion/);
-  assert.match(popupSource, /local\.localState !== local\.iconState/);
-  assert.doesNotMatch(popupSource, /navigator\.clipboard|clipboard\.writeText|innerHTML\s*=/);
+  assert.match(popupSource, /i < 10/);
+  assert.match(popupSource, /lastDiagnosticReport/);
+  assert.match(popupSource, /navigator\.clipboard\.writeText\(json\)/);
+  assert.doesNotMatch(popupSource, /innerHTML\s*=/);
 });
 
 test("manual Stop click bypasses temporary Working signal grace", () => {

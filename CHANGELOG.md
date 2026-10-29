@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 0.4.7 - 2026-10-29 (Live status diagnostics)
+
+- Added a 10-sample, approximately 10-second interactive status diagnostic in the extension popup, including a copyable technical JSON report.
+- Compare local status, monitor state, browser favicon kind, whether the status icon link is last, visible Stop/working indicators, bounded DOM shape counts, and up to 15 recent state transitions.
+- The report uses a strict allowlist and excludes conversation contents, tab URLs, chat titles and raw page text; collection is user-initiated and kept only in popup memory.
+- Added targeted regression tests for report redaction, false status names, bounded quantities, and layer-specific diagnosis; included helper in the versioned extension ZIP.
+- Repackaged the optional Vivaldi CSS as version 0.4.7; the CSS still requires live browser verification and cannot independently detect ongoing generation.
+
+
 ## 0.4.6 - 2026-10-29 (Working detection and diagnostics)
 
 - Widen generation Stop-button discovery beyond buttons with a recognized label/testid to include confirmed prompt-composer icon-only square controls, plus a visible active-generation indicator.

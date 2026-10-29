@@ -1,11 +1,14 @@
-/* ChatGPT MultiChat Monitor Color — optional Vivaldi UI CSS. Version 0.4.5.
+/* ChatGPT MultiChat Monitor Color — optional Vivaldi UI CSS. Version 0.4.7.
    IMPORTANT: The Chromium extension alone cannot recolor the tab bar.
    Enable CSS modifications in vivaldi://experiments, set your CSS folder under
    Settings > Appearance > Custom UI Modifications, then restart Vivaldi.
    This matches a status favicon URL exposed by the Vivaldi tab DOM.
    Some Vivaldi builds expose only a generated data: image; in that case
    CSS cannot reliably infer the state. No active state = no recoloring.
-   Never changes unrelated website tabs. */
+   Never changes unrelated website tabs.
+   IMPORTANT: CSS does not detect a working conversation; it can only
+   respond to a favicon URL if Vivaldi exposes it in its tab DOM.
+   Run Tab-Status pruefen in the extension popup for live diagnostics. */
 
 /* working */
 #tabs-container .tab:has(.favicon img[src*="/assets/tab-status/working.svg"], .favicon img[srcset*="/assets/tab-status/working.svg"], .favicon img[style*="/assets/tab-status/working.svg"], .favicon[src*="/assets/tab-status/working.svg"], .favicon[srcset*="/assets/tab-status/working.svg"], .favicon[style*="/assets/tab-status/working.svg"]) {
