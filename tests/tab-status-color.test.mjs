@@ -123,7 +123,7 @@ test("manifest injects status module before monitor and exposes only status icon
 
 test("state publisher and recovery evaluations repaint the favicon with Pending-aware state", () => {
   assert.match(contentSource, /function sendCurrentState\(\) \{\s*paintTabStatus\(\)/);
-  assert.match(contentSource, /function evaluate\(options\) \{\s*paintTabStatus\(\)/);
+  assert.match(contentSource, /function evaluate\(options\) \{\s*diagnosticEvaluationCount \+= 1;\s*diagnosticLastEvaluatedAt = Date\.now\(\);\s*paintTabStatus\(\)/);
   assert.match(contentSource, /localState\.state === "idle" && tabPending \? "pending"/);
 });
 

@@ -14,7 +14,7 @@ ctx.globalThis = ctx;
 vm.runInNewContext(script, ctx);
 const { makeSample, diagnosis } = ctx.__chatgptMultichatDiagnosticReport;
 
-function sample(overrides = {}) {
+function sample(overrides = {}, monitor = { state: "idle" }) {
   return makeSample({
     scriptVersion: "0.4.7",
     initialized: true, localState: "idle",
@@ -22,7 +22,7 @@ function sample(overrides = {}) {
     signalInventory: { visibleComposerButtons: 1, squareStopCandidates: 0,
       recognizedStopButtons: 0, visibleBusyIndicators: 0 },
     ...overrides
-  }, { state: "idle" }, "data:image/png;base64,aGVsbG8=", "0.4.7");
+  }, monitor, "data:image/png;base64,aGVsbG8=", "0.4.7");
 }
 
 test("diagnostic report only contains allow-listed state and counter fields", () => {
@@ -92,7 +92,7 @@ test("diagnostic warning distinguishes detection, favicon and CSS problems", () 
   assert.match(diagnosis(sample({ signalInventory: { squareStopCandidates: 1,
     recognizedStopButtons: 0 } })), /Stopp-Symbol/);
   assert.match(diagnosis(sample({ localState: "working", iconState: "idle" })), /Favicon/);
-  assert.match(diagnosis(sample({ localState: "working", iconState: "working" })), /Vivaldi-CSS/);
+  assert.match(diagnosis(sample({ localState: "working", iconState: "working" }, { state: "working" })), /Vivaldi-CSS/);
 });
 
 test("status UI and report remain local until a user explicitly clicks Copy", () => {
