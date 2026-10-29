@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Added an automatic GitHub Releases workflow that publishes a version-labelled, installable ZIP when the new main version passes all regression checks.
+- Added root-level `VERSION.txt`, matching `manifest.json`, packaging integrity checks, and a SHA-256 checksum file.
+- Changed the recommended downloads to this fork's Releases → Assets instead of the unversioned Code → Download ZIP archive.
+
+
 ## 0.4.4 - 2026-10-29 (Visible tab status symbols)
 
 - Redesigned all nine per-tab favicons as high-contrast colored circles with distinct state symbols, including an easily recognizable yellow active and green finished icon.
