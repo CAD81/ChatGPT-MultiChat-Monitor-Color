@@ -1167,3 +1167,41 @@ test("manual Stop click bypasses temporary Working signal grace", () => {
   assert.match(code, /Date\.now\(\) >= manualStopUntil/);
   assert.match(contentSource, /manualStopUntil = Date\.now\(\) \+ 5000;\s*lastWorkingEvidenceAt = 0/);
 });
+
+
+test("tab signal inventory exposes only counts and does not collect DOM text", () => {
+  const inventory = contentFunction("diagnosticSignalInventory", {
+    document: {
+      querySelectorAll(selector) {
+        if (selector.startsWith("form button")) {
+          return [{
+            tagName: "BUTTON",
+            closest: () => ({}),
+            querySelectorAll: () => [{ tagName: "rect", getAttribute: (name) =>
+              ({ width: "10", height: "10" })[name] ?? null }]
+          }];
+        }
+        return [];
+      }
+    },
+    isVisible: () => true,
+    isStopButton: () => true
+  });
+  const report = inventory();
+  assert.equal(report.visibleComposerButtons, 1);
+  assert.equal(report.squareStopCandidates, 1);
+  assert.equal(report.recognizedStopButtons, 1);
+  assert.equal(report.visibleBusyIndicators, 0);
+  assert.deepEqual(Object.keys(report).sort(),
+    ["visibleComposerButtons", "squareStopCandidates", "recognizedStopButtons", "visibleBusyIndicators"].sort());
+});
+
+test("transitions and evaluation counters are bounded and no URLs/titles are in status report", () => {
+  assert.match(contentSource, /diagnosticTransitions\.length > 24/);
+  assert.match(contentSource, /diagnosticEvaluationCount \+= 1/);
+  const fn = functionSource(contentSource, "statusDiagnostics");
+  assert.match(fn, /faviconLinkLast:/);
+  assert.match(fn, /signalInventory:/);
+  assert.match(fn, /transitions:/);
+  assert.doesNotMatch(fn, /document\.title|location\.href|textContent|innerText|localStorage|outerHTML/);
+});

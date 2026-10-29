@@ -114,7 +114,7 @@ test("missing extension runtime does not throw or modify the site", () => {
 
 test("manifest injects status module before monitor and exposes only status icons on ChatGPT", () => {
   assert.deepEqual(manifest.content_scripts[0].js, ["tab-status.js", "content.js"]);
-  assert.equal(manifest.version, "0.4.6");
+  assert.equal(manifest.version, "0.4.7");
   const assets = manifest.web_accessible_resources;
   assert.equal(assets.length, 1);
   assert.deepEqual(assets[0].resources, ["assets/tab-status/*.svg"]);
