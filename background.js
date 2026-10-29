@@ -135,7 +135,8 @@ function longDiagFindings(events) {
   return marks.map(event => {
     let suspected = "undetermined";
     if (event.local === "working") {
-      if (event.stop) suspected = "stop-control-still-detected";
+      if (event.stop) suspected = event.counters?.stopOutsideComposer > 0
+        ? "unscoped-stop-button-still-detected" : "stop-control-still-detected";
       else if (event.busy) suspected = "busy-indicator-still-detected";
       else suspected = "state-or-timer-not-completing";
     } else if (event.local === "finished" && event.icon === "working") {
@@ -249,6 +250,8 @@ function longDiagSanitize(sample, tabId, record, kind) {
     mainMutationCount: longDiagCount(raw.mainMutationCount, 10000000),
     counters: {
       stopControls: longDiagCount(counts.recognizedStopButtons),
+      stopInsideComposer: longDiagCount(counts.stopInsideComposer),
+      stopOutsideComposer: longDiagCount(counts.stopOutsideComposer),
       squareIcons: longDiagCount(counts.squareStopCandidates),
       busyIndicators: longDiagCount(counts.visibleBusyIndicators),
       staleMarkers: longDiagCount(counts.staleProneMarkers)

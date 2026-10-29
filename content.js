@@ -2655,18 +2655,26 @@
       visibleComposerButtons: 0,
       squareStopCandidates: 0,
       recognizedStopButtons: 0,
+      stopInsideComposer: 0,
+      stopOutsideComposer: 0,
       visibleBusyIndicators: 0,
       staleProneMarkers: 0
     };
     const candidates = document.querySelectorAll(
-      'form button, button[data-testid*="stop"], button[data-test-id*="stop"]'
+      'form button, button[data-testid*="stop"], button[data-test-id*="stop"], ' +
+      'button[aria-label], [role="button"][aria-label], button[title], button#composer-submit-button'
     );
     let examined = 0;
     for (const button of candidates) {
       if (++examined > 120) break;
       if (!isVisible(button)) continue;
-      if (button.closest?.("form")) result.visibleComposerButtons += 1;
-      if (isStopButton(button)) result.recognizedStopButtons += 1;
+      const inComposer = !!button.closest?.("form");
+      if (inComposer) result.visibleComposerButtons += 1;
+      if (isStopButton(button)) {
+        result.recognizedStopButtons += 1;
+        if (inComposer) result.stopInsideComposer += 1;
+        else result.stopOutsideComposer += 1;
+      }
 
       const icons = button.querySelectorAll?.("svg rect, svg path[d]") || [];
       let iconCount = 0;

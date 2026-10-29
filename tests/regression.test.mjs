@@ -1200,9 +1200,11 @@ test("tab signal inventory exposes only counts and does not collect DOM text", (
   assert.equal(report.visibleComposerButtons, 1);
   assert.equal(report.squareStopCandidates, 1);
   assert.equal(report.recognizedStopButtons, 1);
+  assert.equal(report.stopInsideComposer, 1);
+  assert.equal(report.stopOutsideComposer, 0);
   assert.equal(report.visibleBusyIndicators, 0);
   assert.deepEqual(Object.keys(report).sort(),
-    ["visibleComposerButtons", "squareStopCandidates", "recognizedStopButtons", "visibleBusyIndicators","staleProneMarkers"].sort());
+    ["visibleComposerButtons", "squareStopCandidates", "recognizedStopButtons", "stopInsideComposer", "stopOutsideComposer", "visibleBusyIndicators","staleProneMarkers"].sort());
 });
 
 test("transitions and evaluation counters are bounded and no URLs/titles are in status report", () => {
@@ -1433,4 +1435,22 @@ test("large diagnostic logs can be exported as an explicitly downloaded JSON fil
   assert.match(popupSource, /longDiagnosticDownload\.addEventListener\("click", downloadLongDiagnosticCapture\)/);
   assert.match(popupSource, /longDiagnosticStart\.disabled = active \|\| saved > 0/);
   assert.doesNotMatch(popupSource, /fetch\(["']https?:\/\/.*diagnos/i);
+});
+
+
+test("diagnostics distinguish potentially false-positive Stop buttons outside the composer", async () => {
+  const {api}=await loadBackground();
+  const now=new Date().toISOString();
+  const finding=api.longDiagFindings([{
+    at:now,tab:"Tab 1",kind:"user-finished",
+    local:"working",monitor:"working",icon:"working",stop:true,busy:false,
+    counters:{stopOutsideComposer:1,stopControls:1}
+  }]);
+  assert.equal(finding[0].suspectedLayer,"unscoped-stop-button-still-detected");
+  const sample=api.longDiagSanitize({
+    localState:"working",signalInventory:{recognizedStopButtons:2,
+      stopInsideComposer:1,stopOutsideComposer:1}
+  },51,{tabAliases:{}},"heartbeat");
+  assert.equal(sample.counters.stopInsideComposer,1);
+  assert.equal(sample.counters.stopOutsideComposer,1);
 });
