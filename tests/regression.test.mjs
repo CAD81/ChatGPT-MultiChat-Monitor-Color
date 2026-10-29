@@ -1554,3 +1554,54 @@ test("favicon recovery is bounded to three attempts even if browser never update
   assert.match(backgroundSource,/message\?\.type === "monitor-favicon-health"/);
   assert.match(backgroundSource,/longDiagBrowserState\(tab\.favIconUrl\)/);
 });
+
+
+test("content diagnostics version matches manifest after 0.4.10 update", () => {
+  const version = contentSource.match(/const CONTENT_SCRIPT_VERSION = "([^"]+)"/);
+  assert.equal(version?.[1], manifest.version);
+});
+
+test("extension reload does not crash the monitor version label or preference saves", () => {
+  const invalidated = () => { throw new Error("Extension context invalidated."); };
+  const brokenContext = {
+    CONTENT_SCRIPT_VERSION: manifest.version,
+    chrome: { runtime: { getManifest: invalidated },
+      storage: { local: { set: invalidated } } }
+  };
+  const version = contentFunction("extensionVersionLabel", brokenContext);
+  const save = contentFunction("persistLocalPreferences", brokenContext);
+  assert.equal(version(), manifest.version + " (Tab neu laden)");
+  assert.doesNotThrow(() => save({ monitorCollapsed: true }));
+
+  const goodContext = {
+    CONTENT_SCRIPT_VERSION: manifest.version,
+    chrome: { runtime: { getManifest: () => ({ version: manifest.version }) },
+      storage: { local: { set: () => Promise.resolve() } } }
+  };
+  assert.equal(contentFunction("extensionVersionLabel", goodContext)(), manifest.version);
+  assert.doesNotThrow(() =>
+    contentFunction("persistLocalPreferences", goodContext)({ monitorCollapsed: false }));
+});
+
+test("asynchronous storage rejection after context invalidation is handled", () => {
+  let handled = 0;
+  const save = contentFunction("persistLocalPreferences", {
+    chrome: { storage: { local: { set: () => ({
+      catch(handler) {
+        handled++;
+        handler(new Error("Extension context invalidated."));
+      }
+    }) } } }
+  });
+  assert.doesNotThrow(() => save({ monitorSize: null }));
+  assert.equal(handled, 1);
+});
+
+test("monitor controls use guarded storage and runtime metadata access", () => {
+  const helper = functionSource(contentSource, "persistLocalPreferences");
+  assert.match(helper, /chrome\.storage\.local\.set\(values\)/);
+  assert.doesNotMatch(contentSource.replace(helper, ""), /chrome\.storage\.local\.set\(/);
+  const overlay = functionSource(contentSource, "buildOverlay");
+  assert.match(overlay, /const version = extensionVersionLabel\(\)/);
+  assert.doesNotMatch(overlay, /chrome\.runtime\.getManifest\(/);
+});
