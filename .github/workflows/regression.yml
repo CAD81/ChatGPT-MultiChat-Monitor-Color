@@ -29,6 +29,8 @@ jobs:
           node --check content.js
           node --check tab-status.js
           node --check status-diagnostics.js
+          node --check vivaldi-colors.js
+          node --check tests/vivaldi-colors.test.mjs
           node --check popup.js
           node --check offscreen.js
           node --check tests/regression.test.mjs

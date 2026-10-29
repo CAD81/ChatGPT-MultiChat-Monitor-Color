@@ -20,7 +20,7 @@ out_dir="$(cd "$out_dir" && pwd)"
 stage="$(mktemp -d)"
 trap 'rm -rf "$stage"' EXIT
 
-for file in manifest.json background.js content.js tab-status.js status-diagnostics.js popup.html popup.js offscreen.html offscreen.js LICENSE README.md; do
+for file in manifest.json background.js content.js tab-status.js status-diagnostics.js vivaldi-colors.js popup.html popup.js offscreen.html offscreen.js LICENSE README.md; do
   if [[ ! -f "$root/$file" ]]; then
     echo "ERROR: missing extension file: $file" >&2
     exit 1
@@ -43,7 +43,7 @@ rm -f "$archive" "$archive.sha256"
 (
   cd "$stage"
   zip -X -q -r "$archive" \
-    manifest.json background.js content.js tab-status.js status-diagnostics.js \
+    manifest.json background.js content.js tab-status.js status-diagnostics.js vivaldi-colors.js \
     popup.html popup.js offscreen.html offscreen.js \
     LICENSE README.md VERSION.txt assets/icons assets/tab-status sounds vivaldi
 )
@@ -53,6 +53,7 @@ unzip -Z -1 "$archive" | grep -Fqx 'manifest.json'
 unzip -Z -1 "$archive" | grep -Fqx 'VERSION.txt'
 unzip -Z -1 "$archive" | grep -Fqx 'tab-status.js'
 unzip -Z -1 "$archive" | grep -Fqx 'status-diagnostics.js'
+unzip -Z -1 "$archive" | grep -Fqx 'vivaldi-colors.js'
 unzip -Z -1 "$archive" | grep -Fqx 'assets/tab-status/working.svg'
 unzip -Z -1 "$archive" | grep -Fqx 'sounds/pop.wav'
 unzip -Z -1 "$archive" | grep -Fqx 'vivaldi/chatgpt-multichat-monitor-color.css'

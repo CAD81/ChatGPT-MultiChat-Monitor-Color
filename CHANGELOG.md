@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 0.4.8 - 2026-10-29 (Vivaldi tab color settings)
+
+- Added a dedicated **Tab-Hintergründe (Vivaldi)** section to the extension popup.
+- Configurable per-status colors stored locally, plus a versioned CSS export with the selected colors.
+- Optional explicit cyan-outline CSS-load diagnostic to distinguish missing CSS setup from unsupported Vivaldi tab favicon DOM.
+- Documented that native per-tab background colors cannot be changed directly via an ordinary Chromium extension, and require manually installing the CSS and restarting Vivaldi.
+- Browser-level per-tab status coloring remains unverified.
+
+
 ## 0.4.7 - 2026-10-29 (Live status diagnostics)
 
 - Added a 10-sample, approximately 10-second interactive status diagnostic in the extension popup, including a copyable technical JSON report.
