@@ -114,6 +114,171 @@ const clearHistory = document.getElementById("clearHistory");
 const historyRoot = document.getElementById("history");
 const historySummary = document.getElementById("historySummary");
 
+const longDiagnosticDuration = document.getElementById("longDiagnosticDuration");
+const longDiagnosticStart = document.getElementById("longDiagnosticStart");
+const longDiagnosticStop = document.getElementById("longDiagnosticStop");
+const longDiagnosticMark = document.getElementById("longDiagnosticMark");
+const longDiagnosticCopy = document.getElementById("longDiagnosticCopy");
+const longDiagnosticDownload = document.getElementById("longDiagnosticDownload");
+const longDiagnosticClear = document.getElementById("longDiagnosticClear");
+const longDiagnosticStatus = document.getElementById("longDiagnosticStatus");
+const longDiagnosticReport = document.getElementById("longDiagnosticReport");
+
+async function refreshLongDiagnosticStatus(note = "") {
+  let response = null;
+  try {
+    response = await chrome.runtime.sendMessage({
+      type: "monitor-diagnostic-get", includeEvents: false
+    });
+  } catch {}
+  const report = response?.report || {};
+  const active = report.active === true;
+  const saved = Number(report.received || 0);
+  longDiagnosticStart.disabled = active || saved > 0;
+  longDiagnosticStop.disabled = !active;
+  longDiagnosticMark.disabled = !active;
+  longDiagnosticCopy.disabled = saved === 0;
+  longDiagnosticDownload.disabled = saved === 0;
+  longDiagnosticClear.disabled = active || saved === 0;
+  const end = report.endsAt ? new Date(report.endsAt).toLocaleString("de-DE") : "";
+  longDiagnosticStatus.textContent = note || (active
+    ? "Aufzeichnung läuft bis " + end + ". " +
+      saved + " Proben aus " + (report.recordedTabs || 0) +
+      " ChatGPT-Tabs. Menü darf geschlossen werden."
+    : saved > 0
+      ? "Aufzeichnung beendet. " + saved + " Proben, " +
+        (report.dropped || 0) + " ältere wegen Größenlimit verworfen. " +
+        "Bericht kopieren oder als JSON herunterladen; danach Aufzeichnung löschen."
+      : "Keine Langzeitdiagnose aktiv. Dauer auswählen und starten.");
+  return report;
+}
+async function startLongDiagnosticCapture() {
+  longDiagnosticStart.disabled = true;
+  longDiagnosticStatus.textContent = "Aktiviere Langzeitdiagnose für offene ChatGPT-Tabs …";
+  try {
+    const result = await chrome.runtime.sendMessage({
+      type: "monitor-diagnostic-start",
+      minutes: Number(longDiagnosticDuration.value)
+    });
+    if (!result?.ok) {
+      if (result?.error === "existing-recording") {
+        await refreshLongDiagnosticStatus("Eine Aufzeichnung ist bereits vorhanden. Zuerst Bericht sichern und alte Aufzeichnung löschen.");
+        return;
+      }
+      throw new Error("start");
+    }
+    const detail = result.readyTabs + " Tab-Skripte bereit, " +
+      result.unsupportedTabs + " nicht bereit.";
+    await refreshLongDiagnosticStatus("Aufzeichnung gestartet. " + detail +
+      " Nach Aktualisierung der Erweiterung müssen alte ChatGPT-Tabs manuell neu geladen werden (ungesendete Texte vorher sichern).");
+  } catch {
+    await refreshLongDiagnosticStatus("Langzeitdiagnose konnte nicht gestartet werden.");
+  }
+}
+async function stopLongDiagnosticCapture() {
+  longDiagnosticStop.disabled = true;
+  try {
+    const result = await chrome.runtime.sendMessage({type:"monitor-diagnostic-stop"});
+    if (!result?.ok) throw new Error("stop");
+    await refreshLongDiagnosticStatus("Aufzeichnung beendet. Bericht kann jetzt kopiert werden.");
+  } catch {
+    await refreshLongDiagnosticStatus("Beenden fehlgeschlagen.");
+  }
+}
+async function markLongDiagnosticFailure() {
+  try {
+    const tab = await diagnosticActiveTab();
+    if (!tab) {
+      longDiagnosticStatus.textContent = "Öffne den ChatGPT-Tab mit dem falschen gelben Symbol.";
+      return;
+    }
+    const local = await chrome.tabs.sendMessage(tab.id, {
+      type:"monitor-get-status-diagnostics"
+    });
+    if (!local || typeof local.scriptVersion !== "string") {
+      longDiagnosticStatus.textContent = "Tab-Skript veraltet. Tab nach Sicherung neu laden.";
+      return;
+    }
+    // User asserted the reply is complete; no inference from page text.
+    const result = await chrome.runtime.sendMessage({
+      type:"monitor-diagnostic-mark",
+      tabId:tab.id,
+      sample:local
+    });
+    await refreshLongDiagnosticStatus(result?.ok
+      ? "Fehlerzeitpunkt markiert. Die Aufzeichnung läuft weiter."
+      : "Markierung fehlgeschlagen. Aufzeichnung noch aktiv?");
+  } catch {
+    longDiagnosticStatus.textContent = "Fehlermarkierung nicht möglich. Ist der ChatGPT-Tab geöffnet?";
+  }
+}
+async function copyLongDiagnosticCapture() {
+  try {
+    const result = await chrome.runtime.sendMessage({
+      type:"monitor-diagnostic-get",
+      includeEvents:true
+    });
+    if (!result?.ok || !result.report?.events?.length) throw new Error("missing");
+    const text = JSON.stringify(result.report,null,2);
+    try {
+      await navigator.clipboard.writeText(text);
+      await refreshLongDiagnosticStatus("Technischen Bericht kopiert. Hier in ChatGPT einfügen.");
+    } catch {
+      longDiagnosticReport.hidden = false;
+      longDiagnosticReport.value = text;
+      longDiagnosticReport.focus();
+      longDiagnosticReport.select();
+      longDiagnosticStatus.textContent = "Strg+C zum Kopieren des markierten Berichts drücken.";
+    }
+  } catch {
+    longDiagnosticStatus.textContent = "Bericht konnte nicht abgerufen werden.";
+  }
+}
+
+async function downloadLongDiagnosticCapture() {
+  try {
+    const result = await chrome.runtime.sendMessage({
+      type:"monitor-diagnostic-get",includeEvents:true
+    });
+    if (!result?.ok || !result.report?.events?.length) throw new Error("missing");
+    const json = JSON.stringify(result.report,null,2);
+    const url = URL.createObjectURL(new Blob([json],{type:"application/json;charset=utf-8"}));
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    const stamp = new Date().toISOString().replace(/[:.]/g,"-");
+    anchor.download = "ChatGPT-MultiChat-Monitor-Color-v" +
+      chrome.runtime.getManifest().version + "-diagnose-" + stamp + ".json";
+    document.body.appendChild(anchor);
+    try {
+      anchor.click();
+      longDiagnosticStatus.textContent = "JSON-Bericht heruntergeladen. Du kannst die Datei hier im Chat hochladen.";
+    } finally {
+      anchor.remove();
+      setTimeout(() => URL.revokeObjectURL(url),1000);
+    }
+  } catch {
+    longDiagnosticStatus.textContent = "JSON-Export fehlgeschlagen. Bericht alternativ kopieren.";
+  }
+}
+
+async function clearLongDiagnosticCapture() {
+  try {
+    const result = await chrome.runtime.sendMessage({type:"monitor-diagnostic-clear"});
+    if (!result?.ok) throw new Error("clear");
+    longDiagnosticReport.value = "";
+    longDiagnosticReport.hidden = true;
+    await refreshLongDiagnosticStatus("Aufzeichnung gelöscht.");
+  } catch {
+    longDiagnosticStatus.textContent = "Löschen fehlgeschlagen.";
+  }
+}
+longDiagnosticStart.addEventListener("click", startLongDiagnosticCapture);
+longDiagnosticStop.addEventListener("click", stopLongDiagnosticCapture);
+longDiagnosticMark.addEventListener("click", markLongDiagnosticFailure);
+longDiagnosticCopy.addEventListener("click", copyLongDiagnosticCapture);
+longDiagnosticDownload.addEventListener("click", downloadLongDiagnosticCapture);
+longDiagnosticClear.addEventListener("click", clearLongDiagnosticCapture);
+
 const tabDiagnostics = document.getElementById("tabDiagnostics");
 const refreshTabDiagnostics = document.getElementById("refreshTabDiagnostics");
 const captureTabDiagnostics = document.getElementById("captureTabDiagnostics");
@@ -517,7 +682,8 @@ async function load() {
   await Promise.all([
     loadHistory(),
     loadUpdateInfo(),
-    loadTabDiagnostics()
+    loadTabDiagnostics(),
+    refreshLongDiagnosticStatus()
   ]);
 }
 

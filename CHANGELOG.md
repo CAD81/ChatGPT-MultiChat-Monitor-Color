@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## 0.4.9 - 2026-10-29 (Completion-state reliability and long diagnostics)
+
+- Restrict stale generation markers: only visibly and explicitly busy `aria-busy=true` indicators qualify as active; `generating` / `streaming` testids alone cannot leave Working stuck.
+- Preserve the green Finished icon after completion and tab focus instead of automatically acknowledging it to Idle.
+- Update content diagnostic script version to match manifest; 0.4.8 had still reported 0.4.7.
+- Trace recognized Stop controls inside versus outside the ChatGPT composer to identify false-positive stale Working caused by unrelated buttons.
+- Add opt-in 15/60/120 minute multi-tab status recorder that continues after popup closes, including 10-second snapshots, user-marked false Working, recent DOM activity and stale-marker counts.
+- Bounded, private, session-only report storage (2,500 events maximum). Only technical status fields are captured. No titles, full URLs, page content or automatic uploads.
+- Copy or export a versioned JSON report on demand. Automatic anomaly detection and marker-based root-cause classification; protect existing recordings against accidental overwrite.
+
+
 ## 0.4.8 - 2026-10-29 (Vivaldi tab color settings)
 
 - Added a dedicated **Tab-Hintergründe (Vivaldi)** section to the extension popup.

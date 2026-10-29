@@ -80,6 +80,277 @@ let offscreenCreatePromise = null;
 const pendingDoneSoundTimers = new Map();
 const layoutUndos = new Map();
 
+// Long diagnostic capture: tab content scripts create periodic samples while
+// the popup is closed. Only strictly typed counters and states are persisted
+// in chrome.storage.session (not synced; cleared at browser restart).
+const LONG_DIAG_KEY = "monitorLongDiagnostic";
+const LONG_DIAG_MAX_EVENTS = 2500;
+const LONG_DIAG_INTERVAL_MS = 10000;
+const LONG_DIAG_ALLOWED_MINUTES = new Set([15, 60, 120]);
+const LONG_DIAG_STATES = new Set([
+  "idle", "draft", "working", "finished", "attention",
+  "error", "retry", "interrupted", "pending"
+]);
+let longDiagQueue = Promise.resolve();
+function withLongDiagLock(work) {
+  const next = longDiagQueue.catch(() => {}).then(work);
+  longDiagQueue = next.catch(() => {});
+  return next;
+}
+function longDiagState(value) {
+  return LONG_DIAG_STATES.has(value) ? value : "unknown";
+}
+function longDiagBool(value) { return value === true; }
+function longDiagCount(value, limit = 100) {
+  return Number.isFinite(Number(value))
+    ? Math.max(0, Math.min(limit, Math.round(Number(value)))) : 0;
+}
+function longDiagBrowserState(url) {
+  const source = typeof url === "string" ? url : "";
+  const match = source.match(/\/assets\/tab-status\/([a-z]+)\.svg(?:$|\?)/);
+  return longDiagState(match?.[1]);
+}
+function longDiagFaviconKind(url) {
+  const source = typeof url === "string" ? url : "";
+  if (!source) return "missing";
+  if (source.startsWith("data:")) return "data-url";
+  if (source.includes("/assets/tab-status/")) return "status-svg";
+  if (source.startsWith("chrome-extension:")) return "extension-other";
+  return "other";
+}
+async function readLongDiag() {
+  const stored = await chrome.storage.session.get({ [LONG_DIAG_KEY]: null });
+  const recording = stored[LONG_DIAG_KEY];
+  if (!recording || recording.format !== "chatgpt-multichat-long-diagnostic-v1") return null;
+  if (recording.active && Date.now() >= recording.endsAt) {
+    recording.active = false;
+    recording.stoppedAt = recording.endsAt;
+    await chrome.storage.session.set({ [LONG_DIAG_KEY]: recording });
+  }
+  return recording;
+}
+function longDiagFindings(events) {
+  const marks = (Array.isArray(events) ? events : [])
+    .filter(event => event.kind === "user-finished").slice(-20);
+  return marks.map(event => {
+    let suspected = "undetermined";
+    if (event.local === "working") {
+      if (event.stop) suspected = event.counters?.stopOutsideComposer > 0
+        ? "unscoped-stop-button-still-detected" : "stop-control-still-detected";
+      else if (event.busy) suspected = "busy-indicator-still-detected";
+      else suspected = "state-or-timer-not-completing";
+    } else if (event.local === "finished" && event.icon === "working") {
+      suspected = "document-favicon-not-updated";
+    } else if (event.local === "finished" && event.browserIcon === "working") {
+      suspected = "browser-favicon-stale";
+    } else if (event.local === "finished" && event.monitor === "working") {
+      suspected = "background-monitor-stale";
+    } else if (event.local === "finished" && event.icon === "finished" &&
+               event.browserIcon === "finished") {
+      suspected = "native-browser-tab-ui-or-css";
+    }
+    return {at:event.at,tab:event.tab,suspectedLayer:suspected};
+  });
+}
+function longDiagAutomaticChecks(events) {
+  // Anomaly detections are hints based on repeated technical signals.
+  // No conclusion about actual server completion is made without a marker.
+  const streaks = new Map();
+  const alerts = [];
+  for (const e of (Array.isArray(events) ? events : [])) {
+    if (e.kind === "user-finished") continue;
+    let issue = "";
+    if (e.local === "working" && !e.stop && !e.busy &&
+        !e.restoreGrace && !e.confirmationPending) {
+      issue = "working-without-visible-active-signal";
+    } else if (e.local === "working" && !e.stop && e.busy &&
+               e.mainMutationAgeMs >= 90000) {
+      issue = "busy-indicator-without-recent-main-updates";
+    } else if (e.local === "finished" && e.icon === "working") {
+      issue = "finished-but-document-icon-working";
+    } else if (e.local === "finished" && e.browserIcon === "working") {
+      issue = "finished-but-browser-favicon-working";
+    } else if (e.local === "finished" && e.monitor === "working") {
+      issue = "finished-but-monitor-working";
+    }
+    const prior = streaks.get(e.tab);
+    const run = prior && prior.issue === issue ?
+      {issue, count:prior.count + 1, first:prior.first, last:e.at} :
+      {issue, count:1, first:e.at, last:e.at};
+    streaks.set(e.tab,run);
+    if (issue && run.count === 3) {
+      alerts.push({tab:e.tab,kind:issue,first:run.first,last:run.last,count:run.count});
+    } else if (issue && run.count > 3) {
+      const current = alerts.findLast?.(a => a.tab === e.tab && a.kind === issue);
+      if (current) {current.last = run.last;current.count = run.count;}
+    }
+  }
+  return alerts.slice(-30);
+}
+function longDiagPublic(recording, includeEvents = false) {
+  if (!recording) return {
+    active: false, startedAt: null, endsAt: null,
+    recordedTabs: 0, received: 0, dropped: 0,
+    sampleIntervalMs: LONG_DIAG_INTERVAL_MS
+  };
+  const info = {
+    active: recording.active === true,
+    startedAt: new Date(recording.startedAt).toISOString(),
+    endsAt: new Date(recording.endsAt).toISOString(),
+    stoppedAt: recording.stoppedAt ? new Date(recording.stoppedAt).toISOString() : null,
+    durationMinutes: recording.durationMinutes,
+    recordedTabs: Object.keys(recording.tabAliases || {}).length,
+    received: recording.received,
+    dropped: recording.dropped,
+    sampleIntervalMs: LONG_DIAG_INTERVAL_MS
+  };
+  if (!includeEvents) return info;
+  return {
+    format: recording.format,
+    extensionVersion: chrome.runtime.getManifest().version,
+    ...info,
+    // No tab IDs, URLs, conversation titles, prompt text or raw DOM values.
+    events: recording.events,
+    findings: longDiagFindings(recording.events),
+    automaticChecks: longDiagAutomaticChecks(recording.events)
+  };
+}
+function longDiagSanitize(sample, tabId, record, kind) {
+  const raw = sample && typeof sample === "object" ? sample : {};
+  const counts = raw.signalInventory && typeof raw.signalInventory === "object"
+    ? raw.signalInventory : {};
+  const id = String(tabId);
+  if (!Object.prototype.hasOwnProperty.call(record.tabAliases, id)) {
+    record.tabAliases[id] = "Tab " + (Object.keys(record.tabAliases).length + 1);
+  }
+  const tab = chats.get(tabId);
+  const stop = longDiagBool(raw.stopButtonVisible);
+  const busy = longDiagBool(raw.progressIndicatorVisible);
+  return {
+    at: new Date().toISOString(),
+    tab: record.tabAliases[id],
+    kind: kind === "transition" ? "transition" :
+      kind === "user-finished" ? "user-finished" : "heartbeat",
+    local: longDiagState(raw.localState),
+    monitor: longDiagState(tab?.state),
+    icon: longDiagState(raw.iconState),
+    visual: longDiagState(raw.visualState),
+    stop,
+    busy,
+    source: stop ? "stop-control" : busy ? "explicit-busy" : "none",
+    favicon: longDiagFaviconKind(raw.browserFaviconUrl),
+    browserIcon: longDiagBrowserState(raw.browserFaviconUrl),
+    iconLast: longDiagBool(raw.faviconLinkLast),
+    hidden: longDiagBool(raw.documentHidden),
+    confirmationPending: longDiagBool(raw.finishConfirmationPending),
+    restoreGrace: longDiagBool(raw.finishRestoreGracePending),
+    evaluationAgeMs: longDiagCount(raw.lastEvaluationAgeMs, 600000),
+    workingEvidenceAgeMs: longDiagCount(raw.workingEvidenceAgeMs, 600000),
+    mainMutationAgeMs: longDiagCount(raw.lastMainMutationAgeMs, 600000),
+    mainMutationCount: longDiagCount(raw.mainMutationCount, 10000000),
+    counters: {
+      stopControls: longDiagCount(counts.recognizedStopButtons),
+      stopInsideComposer: longDiagCount(counts.stopInsideComposer),
+      stopOutsideComposer: longDiagCount(counts.stopOutsideComposer),
+      squareIcons: longDiagCount(counts.squareStopCandidates),
+      busyIndicators: longDiagCount(counts.visibleBusyIndicators),
+      staleMarkers: longDiagCount(counts.staleProneMarkers)
+    },
+    scriptVersion: /^\d+\.\d+\.\d+$/.test(raw.scriptVersion || "")
+      ? raw.scriptVersion : "unknown"
+  };
+}
+function appendLongDiagEvent(recording, event) {
+  recording.events.push(event);
+  recording.received += 1;
+  if (recording.events.length > LONG_DIAG_MAX_EVENTS) {
+    recording.events.splice(0, recording.events.length - LONG_DIAG_MAX_EVENTS);
+    recording.dropped = recording.received - recording.events.length;
+  }
+}
+async function addLongDiagSample(tabId, sample, kind) {
+  return withLongDiagLock(async () => {
+    const recording = await readLongDiag();
+    if (!recording?.active || !Number.isInteger(tabId)) return {ok:false,active:false};
+    const entry = longDiagSanitize(sample, tabId, recording, kind);
+    appendLongDiagEvent(recording, entry);
+    await chrome.storage.session.set({ [LONG_DIAG_KEY]: recording });
+    return {ok:true,active:true};
+  });
+}
+async function broadcastLongDiagConfig(active, endsAt = 0) {
+  let tabs = [];
+  try { tabs = await chrome.tabs.query({url:"https://chatgpt.com/*"}); } catch {}
+  const outcomes = await Promise.allSettled(tabs.filter(tab =>
+    Number.isInteger(tab.id) && !tab.discarded
+  ).map(async tab => {
+    const result = await chrome.tabs.sendMessage(tab.id, {
+      type:"monitor-diagnostic-config",
+      active, endsAt
+    });
+    if (result?.ok !== true || result.scriptVersion !== chrome.runtime.getManifest().version) {
+      throw new Error("Missing updated ChatGPT tab script");
+    }
+  }));
+  return {
+    tabCount: tabs.length,
+    readyTabs: outcomes.filter(x => x.status === "fulfilled").length,
+    unsupportedTabs: outcomes.filter(x => x.status !== "fulfilled").length
+  };
+}
+async function startLongDiag(requestedMinutes) {
+  const minutes = Number(requestedMinutes);
+  if (!LONG_DIAG_ALLOWED_MINUTES.has(minutes)) return {ok:false,error:"invalid-duration"};
+  const now = Date.now();
+  const recording = {
+    format:"chatgpt-multichat-long-diagnostic-v1",
+    active:true, startedAt:now,
+    endsAt:now + minutes * 60 * 1000,
+    stoppedAt:null, durationMinutes:minutes,
+    events:[],tabAliases:{},received:0,dropped:0
+  };
+  const written = await withLongDiagLock(async () => {
+    const previous = await readLongDiag();
+    // Never silently discard a previous diagnostic recording.
+    if (previous?.active || previous?.received > 0) return false;
+    await chrome.storage.session.set({[LONG_DIAG_KEY]:recording});
+    return true;
+  });
+  if (!written) return {ok:false,error:"existing-recording"};
+  const tabs = await broadcastLongDiagConfig(true,recording.endsAt);
+  return {ok:true,...longDiagPublic(recording),...tabs};
+}
+async function stopLongDiag() {
+  const recording = await withLongDiagLock(async () => {
+    const session = await readLongDiag();
+    if (session?.active) {
+      session.active = false;
+      session.stoppedAt = Date.now();
+      await chrome.storage.session.set({[LONG_DIAG_KEY]:session});
+    }
+    return session;
+  });
+  await broadcastLongDiagConfig(false);
+  return {ok:true,...longDiagPublic(recording)};
+}
+async function longDiagReport(includeEvents) {
+  return withLongDiagLock(async()=>({
+    ok:true, report:longDiagPublic(await readLongDiag(), includeEvents === true)
+  }));
+}
+async function markLongDiag(tabId, sample) {
+  const tab = await chrome.tabs.get(tabId).catch(() => null);
+  if (!String(tab?.url || "").startsWith("https://chatgpt.com/")) {
+    return {ok:false,error:"not-chatgpt-tab"};
+  }
+  return addLongDiagSample(tabId, {
+    ...(sample && typeof sample === "object" ? sample : {}),
+    browserFaviconUrl: tab.favIconUrl || ""
+  }, "user-finished");
+}
+
+
+
 function cleanTitle(title) {
   const value = String(title || "")
     .replace(/\s+-\s+ChatGPT\s*$/i, "")
@@ -1111,7 +1382,6 @@ async function activateTab(tabId) {
     if (!String(tab.url || "").startsWith("https://chatgpt.com/")) return false;
     await chrome.windows.update(tab.windowId, { focused: true });
     await chrome.tabs.update(tabId, { active: true });
-    await acknowledgeFinishedTab(tabId);
     return true;
   } catch {
     return false;
@@ -1563,23 +1833,68 @@ async function injectIntoOpenTabs() {
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message?.type === "monitor-diagnostic-current") {
+    longDiagReport(false)
+      .then(result => sendResponse({ active: result.report.active,
+        endsAt: Date.parse(result.report.endsAt) || 0 }))
+      .catch(() => sendResponse({active:false,endsAt:0}));
+    return true;
+  }
+  if (message?.type === "monitor-diagnostic-start") {
+    startLongDiag(message.minutes)
+      .then(sendResponse)
+      .catch(() => sendResponse({ok:false,error:"start-failed"}));
+    return true;
+  }
+  if (message?.type === "monitor-diagnostic-stop") {
+    stopLongDiag()
+      .then(sendResponse)
+      .catch(() => sendResponse({ok:false,error:"stop-failed"}));
+    return true;
+  }
+  if (message?.type === "monitor-diagnostic-get") {
+    longDiagReport(message.includeEvents === true)
+      .then(sendResponse)
+      .catch(() => sendResponse({ok:false,error:"get-failed"}));
+    return true;
+  }
+  if (message?.type === "monitor-diagnostic-clear") {
+    withLongDiagLock(() => chrome.storage.session.remove(LONG_DIAG_KEY))
+      .then(() => broadcastLongDiagConfig(false))
+      .then(() => sendResponse({ok:true}))
+      .catch(() => sendResponse({ok:false}));
+    return true;
+  }
+  if (message?.type === "monitor-diagnostic-sample") {
+    addLongDiagSample(sender.tab?.id, {
+      ...(message.sample && typeof message.sample === "object" ? message.sample : {}),
+      browserFaviconUrl: sender.tab?.favIconUrl || ""
+    }, message.kind)
+      .then(sendResponse)
+      .catch(() => sendResponse({ok:false}));
+    return true;
+  }
+  if (message?.type === "monitor-diagnostic-mark") {
+    const tabId = Number(message.tabId);
+    if (!Number.isInteger(tabId)) {
+      sendResponse({ok:false,error:"invalid-tab"});
+      return true;
+    }
+    // A manual marker from the popup records the user's observation, not
+    // a claim that the DOM itself proved the reply is finished.
+    markLongDiag(tabId, message.sample)
+      .then(sendResponse)
+      .catch(() => sendResponse({ok:false}));
+    return true;
+  }
+
   if (message?.type === "monitor-state") {
     ensureInitialized()
       .then(async () => {
         const snapshotChanged = upsertState(message, sender.tab);
 
-        if (message.state === "finished" &&
-            sender.tab?.active &&
-            Number.isInteger(sender.tab?.windowId)) {
-          try {
-            const windowInfo = await chrome.windows.get(sender.tab.windowId);
-            if (windowInfo.focused) {
-              const acknowledged = await acknowledgeFinishedTab(sender.tab.id);
-              if (acknowledged) return;
-            }
-          } catch {}
-        }
-
+        // Keep Finished visible on the focused tab until a new response or
+        // an explicit acknowledgment; focus alone must not make it Idle.
         if (snapshotChanged) await broadcast();
       })
       .then(() => sendResponse({ ok: true }))
@@ -1833,28 +2148,6 @@ chrome.commands.onCommand.addListener((command) => {
   } else if (command === "next-attention-chat") {
     cycleChat(["error", "retry", "attention", "finished", "pending"]).catch(() => {});
   }
-});
-
-chrome.tabs.onActivated.addListener((activeInfo) => {
-  chrome.windows.get(activeInfo.windowId)
-    .then((windowInfo) => {
-      if (!windowInfo.focused) return false;
-      return acknowledgeFinishedTab(activeInfo.tabId);
-    })
-    .catch(() => {});
-});
-
-chrome.windows.onFocusChanged.addListener((windowId) => {
-  if (windowId === chrome.windows.WINDOW_ID_NONE) return;
-  chrome.tabs.query({ active: true, windowId })
-    .then((tabs) => {
-      const tab = tabs[0];
-      if (tab && Number.isInteger(tab.id)) {
-        return acknowledgeFinishedTab(tab.id);
-      }
-      return false;
-    })
-    .catch(() => {});
 });
 
 async function handleTabRemoved(tabId) {

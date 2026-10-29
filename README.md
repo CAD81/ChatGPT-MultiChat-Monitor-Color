@@ -79,6 +79,49 @@ its SHA-256 checksum.
    reload tabs with unsaved prompts.
 4. The colored favicon status indicators should now work without UI mods.
 
+## Long-duration status diagnostics (v0.4.9)
+
+To investigate stale yellow Working icons or missed completions, open the
+extension popup and use **Langzeitdiagnose: Statusfehler finden**. Choose 15,
+60 or 120 minutes and click **Starten**. Recording continues in the
+**ChatGPT content scripts and service worker with the popup closed**, and
+also across normal service worker suspension (session state is maintained in
+\`chrome.storage.session\`). Do not close Vivaldi or unload the extension
+during capture. Sleeping/discarded tabs may produce gaps, shown by recorded
+timestamps. After installing a new extension, refresh the affected ChatGPT
+tabs manually **only after saving unsent drafts**.
+
+When you visibly see a finished response but the icon stays yellow, activate
+that ChatGPT tab, open the popup and click **Fertig, aber gelb markieren**.
+This is an explicit *user observation*, not an assertion made by the
+software from unseen network state. The marker and nearby samples identify
+which signal continued to report Working and whether the monitor/favicon
+agreed. The generated `findings` section classifies the suspected layer
+(stop control, explicit busy indicator, completion timer, document favicon,
+browser favicon, background monitor or Vivaldi UI). These are *diagnostic
+hypotheses* based on the user-marked timestamp, not proof of what the
+ChatGPT backend was doing. When sufficient data is available, stop capture and choose
+**JSON herunterladen** to upload the file into ChatGPT (recommended for
+long captures), or **Bericht kopieren** for short reports. The report contains only tab aliases, state labels,
+technical counters and timestamps. It excludes chat contents, titles,
+full tab IDs, URLs, cookies and DOM text. Nothing is sent automatically.
+Working tabs are sampled approximately every 10 seconds, nonworking tabs
+about once per minute to preserve capacity across large tab collections.
+Maximum 2,500 most recent samples are kept (older events count as dropped).
+The report includes automatic anomaly checks for repeated stale states and
+the findings from any explicit user-completed markers. Save the JSON report
+before starting another capture: the previous recording must be explicitly
+deleted first.
+You may delete the recording at any time via **Aufzeichnung löschen**.
+Session data is lost on browser restart.
+
+**Status fix in v0.4.9:** visible elements with a legacy \`generating\` or
+\`streaming\` test ID no longer independently prove an answer is running:
+only explicitly active \`aria-busy="true"\` indicators qualify. A finished
+tab stays visibly green when focused; it is no longer automatically reset
+to Idle. This still requires a live browser test to confirm your specific
+ChatGPT UI variant.
+
 ### Troubleshooting: gray dash while ChatGPT is answering
 
 **From v0.4.7: 10-second live diagnosis.** Start a long ChatGPT answer,

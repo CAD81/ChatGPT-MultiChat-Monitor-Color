@@ -119,7 +119,8 @@ async function loadBackground(options = {}) {
     "\nglobalThis.__testApi = {" +
     " ensureInitialized, upsertState, activeRunForTab, queueActiveRunsPersist, chatKeyFromUrl, tabColorPendingFor," +
     " activateTab, setChatOrder, setChatPreference, prefsFor, handleTabUpdated, handleTabRemoved, rebuildRegistry, ensureOffscreen, snapshot, signalLayoutLockedInActiveTab, resetMonitorPosition, resetMonitorSize, resetChatOrder, resetLayout," +
-    " getChat(tabId) { return chats.get(tabId) || null; }" +
+    " getChat(tabId) { return chats.get(tabId) || null; }," +
+    " startLongDiag, stopLongDiag, longDiagReport, addLongDiagSample, appendLongDiagEvent, longDiagSanitize, longDiagFindings, longDiagAutomaticChecks" +
     "};";
 
   vm.createContext(sandbox);
@@ -1199,9 +1200,11 @@ test("tab signal inventory exposes only counts and does not collect DOM text", (
   assert.equal(report.visibleComposerButtons, 1);
   assert.equal(report.squareStopCandidates, 1);
   assert.equal(report.recognizedStopButtons, 1);
+  assert.equal(report.stopInsideComposer, 1);
+  assert.equal(report.stopOutsideComposer, 0);
   assert.equal(report.visibleBusyIndicators, 0);
   assert.deepEqual(Object.keys(report).sort(),
-    ["visibleComposerButtons", "squareStopCandidates", "recognizedStopButtons", "visibleBusyIndicators"].sort());
+    ["visibleComposerButtons", "squareStopCandidates", "recognizedStopButtons", "stopInsideComposer", "stopOutsideComposer", "visibleBusyIndicators","staleProneMarkers"].sort());
 });
 
 test("transitions and evaluation counters are bounded and no URLs/titles are in status report", () => {
@@ -1212,4 +1215,242 @@ test("transitions and evaluation counters are bounded and no URLs/titles are in 
   assert.match(fn, /signalInventory:/);
   assert.match(fn, /transitions:/);
   assert.doesNotMatch(fn, /document\.title|location\.href|textContent|innerText|localStorage|outerHTML/);
+});
+
+
+test("stale generating/streaming data-testid alone does not keep a completed response Working", () => {
+  const source = functionSource(contentSource, "activeGenerationIndicator");
+  assert.doesNotMatch(source, /'main \[data-testid\*="generating" i\],/);
+  assert.match(source, /\[data-testid\*="generating" i\]\[aria-busy="true"\]/);
+  assert.match(source, /\[data-testid\*="streaming" i\]\[aria-busy="true"\]/);
+  const indicator = contentFunction("activeGenerationIndicator", {
+    document: {
+      querySelectorAll(query) {
+        assert.ok(!query.includes('[data-testid*="generating" i],'));
+        return [];
+      }
+    },
+    isVisible: () => true
+  });
+  assert.equal(indicator(), false);
+});
+
+test("completion remains visibly Finished on the focused ChatGPT tab", () => {
+  const source = backgroundSource;
+  const stateHandler = source.slice(
+    source.indexOf('if (message?.type === "monitor-state")'),
+    source.indexOf('if (message?.type === "monitor-get-active-run")')
+  );
+  assert.doesNotMatch(stateHandler, /acknowledgeFinishedTab/);
+  const activateTab = functionSource(source, "activateTab");
+  assert.doesNotMatch(activateTab, /acknowledgeFinishedTab/);
+  assert.doesNotMatch(source, /chrome\.tabs\.onActivated\.addListener/);
+  assert.doesNotMatch(source, /chrome\.windows\.onFocusChanged\.addListener/);
+  assert.match(source, /async function acknowledgeFinishedTab/);
+});
+
+
+test("long recorder runs after popup closes, with a strict end time and a manual false-Working marker", () => {
+  const ui = fs.readFileSync(path.join(root, "popup.html"), "utf8");
+  for (const id of ["longDiagnosticStart","longDiagnosticStop","longDiagnosticMark",
+    "longDiagnosticCopy","longDiagnosticDownload","longDiagnosticClear","longDiagnosticDuration"]) {
+    assert.match(ui, new RegExp('id="' + id + '"'));
+  }
+  assert.match(ui, /value="60" selected/);
+  assert.match(popupSource, /type:"monitor-diagnostic-mark"/);
+  assert.match(popupSource, /type:"monitor-diagnostic-get"/);
+  assert.match(popupSource, /navigator\.clipboard\.writeText\(text\)/);
+  assert.match(backgroundSource, /LONG_DIAG_MAX_EVENTS = 2500/);
+  assert.match(backgroundSource, /LONG_DIAG_ALLOWED_MINUTES = new Set\(\[15, 60, 120\]\)/);
+  assert.match(backgroundSource, /chrome\.storage\.session\.set\(\{\s*\[LONG_DIAG_KEY\]:/);
+  assert.match(contentSource, /sendLongDiagnosticSample\("heartbeat"\)/);
+  assert.match(contentSource, /type: "monitor-diagnostic-current"/);
+  assert.match(contentSource, /LONG_DIAGNOSTIC_SAMPLE_MS = 10000/);
+});
+
+test("long diagnostic sanitization stores only known signal fields; no page contents or URLs", () => {
+  const source = functionSource(backgroundSource, "longDiagSanitize");
+  assert.doesNotMatch(source, /location\.href|document\.title|outerHTML|innerText|textContent|tab\.url|tab\.title/);
+  assert.match(source, /longDiagState\(raw\.localState\)/);
+  assert.match(source, /longDiagState\(tab\?\.state\)/);
+  assert.match(source, /longDiagCount\(counts\.staleProneMarkers\)/);
+  assert.match(source, /kind === "user-finished"/);
+  assert.match(backgroundSource, /function withLongDiagLock/);
+  assert.match(backgroundSource, /recording\.events\.splice\(0, recording\.events\.length - LONG_DIAG_MAX_EVENTS\)/);
+});
+
+
+test("long recorder actually captures while popup is closed and survives service-worker reinitialization", async () => {
+  const tab = {id:1001, windowId:1, url:"https://chatgpt.com/c/long-test", title:"private title"};
+  const {api, sessionStorage} = await loadBackground({tabs:[tab]});
+  const start = await api.startLongDiag(60);
+  assert.equal(start.ok, true);
+  assert.equal(start.active, true);
+  assert.equal(start.sampleIntervalMs, 10000);
+  api.upsertState({state:"working",url:tab.url,startedAt:Date.now()-1000},tab);
+  const payload = {
+    scriptVersion:"0.4.9", localState:"working",visualState:"working",
+    iconState:"working",stopButtonVisible:true,
+    progressIndicatorVisible:false,documentHidden:false,
+    mainMutationCount:10,mainMutationAgeMs:10,
+    workingEvidenceAgeMs:100,finishConfirmationPending:false,
+    signalInventory: {staleProneMarkers:4,recognizedStopButtons:1},
+    userText:"SECRET CONTENT", title:"SECRET CONTENT",
+    url:"https://very-secret.invalid/SECRET CONTENT"
+  };
+  assert.equal((await api.addLongDiagSample(tab.id,payload,"heartbeat")).ok, true);
+  assert.equal((await api.addLongDiagSample(tab.id,payload,"user-finished")).ok, true);
+  const first = (await api.longDiagReport(true)).report;
+  assert.equal(first.received, 2);
+  assert.equal(first.events[0].local,"working");
+  assert.equal(first.events[0].monitor,"working");
+  assert.equal(first.events[0].counters.staleMarkers,4);
+  assert.equal(first.events[1].kind,"user-finished");
+  assert.equal(first.events[1].tab,"Tab 1");
+  assert.equal(JSON.stringify(first).includes("SECRET CONTENT"),false);
+  assert.equal(JSON.stringify(first).includes("long-test"),false);
+  assert.equal(JSON.stringify(first).includes("1001"),false);
+  const restarted = await loadBackground({tabs:[tab],storedSession:sessionStorage});
+  const after = (await restarted.api.longDiagReport(true)).report;
+  assert.equal(after.received,2);
+  assert.equal(after.events[1].kind,"user-finished");
+  const stopped = await restarted.api.stopLongDiag();
+  assert.equal(stopped.active,false);
+  assert.equal((await restarted.api.longDiagReport(true)).report.events.length,2);
+});
+
+test("long recorder rejects unknown event states, invalid duration and honors storage cap", async () => {
+  const {api} = await loadBackground();
+  const bad = await api.startLongDiag(9999);
+  assert.equal(bad.ok,false);
+  const obj = {events:[],received:0,dropped:0};
+  for(let i=0;i<2504;i+=1) api.appendLongDiagEvent(obj,{at:i});
+  assert.equal(obj.events.length,2500);
+  assert.equal(obj.dropped,4);
+  const fake = {tabAliases:{},events:[],received:0,dropped:0};
+  const record = api.longDiagSanitize({
+    localState:"secret",iconState:"secret",
+    signalInventory:{recognizedStopButtons:10000,staleProneMarkers:3},
+    browserFaviconUrl:"https://private.example/private",
+    title:"secret title",
+    url:"https://private.example"
+  },19,fake,"secret");
+  assert.equal(record.local,"unknown");
+  assert.equal(record.icon,"unknown");
+  assert.equal(record.counters.stopControls,100);
+  assert.equal(record.counters.staleMarkers,3);
+  assert.equal(record.kind,"heartbeat");
+  assert.equal(record.favicon,"other");
+  assert.equal(JSON.stringify(record).includes("private.example"),false);
+});
+
+
+test("user-confirmed completion reports the specific stuck layer rather than guessing", async () => {
+  const {api} = await loadBackground();
+  const now = new Date().toISOString();
+  const base = {at:now,tab:"Tab 1",kind:"user-finished",
+    local:"working",icon:"working",browserIcon:"working",monitor:"working",
+    stop:false,busy:true};
+  assert.equal(api.longDiagFindings([base])[0].suspectedLayer,"busy-indicator-still-detected");
+  assert.equal(api.longDiagFindings([{...base,stop:true}])[0].suspectedLayer,
+    "stop-control-still-detected");
+  assert.equal(api.longDiagFindings([{...base,busy:false}])[0].suspectedLayer,
+    "state-or-timer-not-completing");
+  assert.equal(api.longDiagFindings([{...base,local:"finished",icon:"working"}])[0].suspectedLayer,
+    "document-favicon-not-updated");
+  assert.equal(api.longDiagFindings([{...base,local:"finished",icon:"finished",browserIcon:"working"}])[0].suspectedLayer,
+    "browser-favicon-stale");
+  assert.equal(api.longDiagFindings([{...base,local:"finished",icon:"finished",browserIcon:"finished",monitor:"working"}])[0].suspectedLayer,
+    "background-monitor-stale");
+  assert.equal(api.longDiagFindings([{...base,local:"finished",icon:"finished",browserIcon:"finished",monitor:"finished"}])[0].suspectedLayer,
+    "native-browser-tab-ui-or-css");
+});
+
+test("focused finished tab remains Finished following a real monitor-state message", async () => {
+  const tab = { id: 334, windowId: 1, active: true,
+    url: "https://chatgpt.com/c/focused-finish", title: "Example" };
+  const { api, events } = await loadBackground({ tabs: [tab] });
+  assert.equal((await dispatchBackgroundMessage(events, {
+    type: "monitor-state", state: "working", url: tab.url,
+    startedAt: Date.now() - 1000
+  }, { tab })).ok, true);
+  assert.equal(api.getChat(tab.id)?.state, "working");
+  assert.equal((await dispatchBackgroundMessage(events, {
+    type: "monitor-state", state: "finished", url: tab.url, finishedAt: Date.now()
+  }, { tab })).ok, true);
+  assert.equal(api.getChat(tab.id)?.state, "finished");
+});
+
+
+test("repeated stale active signals are surfaced as bounded diagnostic anomalies", async () => {
+  const {api} = await loadBackground();
+  const event = (i, patch={}) => ({
+    at:new Date(Date.now() + i*10000).toISOString(),
+    tab:"Tab 1",kind:"heartbeat",local:"working",
+    stop:false,busy:false,restoreGrace:false,confirmationPending:false,
+    icon:"working",browserIcon:"working",monitor:"working",
+    mainMutationAgeMs:125000, ...patch
+  });
+  assert.equal(api.longDiagAutomaticChecks([event(0),event(1)]).length,0);
+  const anomalies = api.longDiagAutomaticChecks([event(0),event(1),event(2),event(3)]);
+  assert.equal(anomalies.length,1);
+  assert.equal(anomalies[0].kind,"working-without-visible-active-signal");
+  assert.equal(anomalies[0].count,4);
+  const busy = api.longDiagAutomaticChecks([
+    event(0,{busy:true}),event(1,{busy:true}),event(2,{busy:true})
+  ]);
+  assert.equal(busy[0].kind,"busy-indicator-without-recent-main-updates");
+  const finished = api.longDiagAutomaticChecks([
+    event(0,{local:"finished",icon:"working"}),
+    event(1,{local:"finished",icon:"working"}),
+    event(2,{local:"finished",icon:"working"})
+  ]);
+  assert.equal(finished[0].kind,"finished-but-document-icon-working");
+});
+
+test("starting a second recording cannot destroy the previous uncopied session", async () => {
+  const {api}=await loadBackground();
+  assert.equal((await api.startLongDiag(15)).ok,true);
+  assert.equal((await api.startLongDiag(60)).error,"existing-recording");
+  assert.equal((await api.stopLongDiag()).ok,true);
+  assert.equal((await api.startLongDiag(60)).ok,true,
+    "empty stopped capture may be safely replaced");
+  await api.addLongDiagSample(31,{localState:"working",iconState:"working"},"heartbeat");
+  await api.stopLongDiag();
+  assert.equal((await api.startLongDiag(60)).error,"existing-recording");
+});
+
+test("long recording prioritizes ten-second Working probes and limits idle probes to a minute", () => {
+  const fn = functionSource(contentSource,"sendLongDiagnosticSample");
+  assert.match(fn,/localState\.state !== "working"/);
+  assert.match(fn,/Date\.now\(\) - lastLongHeartbeatAt < 60000/);
+  assert.match(contentSource,/if \(previousState !== state\) sendLongDiagnosticSample\("transition"\)/);
+});
+
+
+test("large diagnostic logs can be exported as an explicitly downloaded JSON file", () => {
+  assert.match(popupSource, /function downloadLongDiagnosticCapture\(\)/);
+  assert.match(popupSource, /application\/json;charset=utf-8/);
+  assert.match(popupSource, /chrome\.runtime\.getManifest\(\)\.version \+ "-diagnose-"/);
+  assert.match(popupSource, /longDiagnosticDownload\.addEventListener\("click", downloadLongDiagnosticCapture\)/);
+  assert.match(popupSource, /longDiagnosticStart\.disabled = active \|\| saved > 0/);
+  assert.doesNotMatch(popupSource, /fetch\(["']https?:\/\/.*diagnos/i);
+});
+
+
+test("diagnostics distinguish potentially false-positive Stop buttons outside the composer", async () => {
+  const {api}=await loadBackground();
+  const now=new Date().toISOString();
+  const finding=api.longDiagFindings([{
+    at:now,tab:"Tab 1",kind:"user-finished",
+    local:"working",monitor:"working",icon:"working",stop:true,busy:false,
+    counters:{stopOutsideComposer:1,stopControls:1}
+  }]);
+  assert.equal(finding[0].suspectedLayer,"unscoped-stop-button-still-detected");
+  const sample=api.longDiagSanitize({
+    localState:"working",signalInventory:{recognizedStopButtons:2,
+      stopInsideComposer:1,stopOutsideComposer:1}
+  },51,{tabAliases:{}},"heartbeat");
+  assert.equal(sample.counters.stopInsideComposer,1);
+  assert.equal(sample.counters.stopOutsideComposer,1);
 });

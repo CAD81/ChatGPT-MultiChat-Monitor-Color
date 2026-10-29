@@ -4,7 +4,7 @@
 
   const FINISH_CONFIRM_MS = 1400;
   const WORKING_SIGNAL_GRACE_MS = 3500;
-  const CONTENT_SCRIPT_VERSION = "0.4.7";
+  const CONTENT_SCRIPT_VERSION = "0.4.9";
   const RECENT_TTL_MS = 180000;
   const ATTENTION_TTL_MS = 30 * 60 * 1000;
   const ERROR_TTL_MS = 10 * 60 * 1000;
@@ -53,6 +53,11 @@
   let diagnosticEvaluationCount = 0;
   let diagnosticLastEvaluatedAt = 0;
   const diagnosticTransitions = [];
+  let diagnosticCaptureEndsAt = 0;
+  let lastLongHeartbeatAt = 0;
+  let diagnosticMainMutationCount = 0;
+  let diagnosticLastMainMutationAt = 0;
+  const LONG_DIAGNOSTIC_SAMPLE_MS = 10000;
   let activeRunStartedAt = null;
   let activeRunRestoreGraceUntil = 0;
   let bootstrapped = false;
@@ -326,7 +331,8 @@
     // explicitly active main-content indicators rather than static text.
     const candidates = document.querySelectorAll(
       'main [aria-busy="true"][data-testid], ' +
-      'main [data-testid*="generating" i], main [data-testid*="streaming" i]'
+      'main [data-testid*="generating" i][aria-busy="true"], ' +
+      'main [data-testid*="streaming" i][aria-busy="true"]'
     );
     for (const candidate of candidates) {
       if (isVisible(candidate)) return true;
@@ -678,6 +684,7 @@
 
     scheduleResetForCurrentState();
     sendCurrentState();
+    if (previousState !== state) sendLongDiagnosticSample("transition");
   }
 
   function evaluate(options) {
@@ -2648,17 +2655,26 @@
       visibleComposerButtons: 0,
       squareStopCandidates: 0,
       recognizedStopButtons: 0,
-      visibleBusyIndicators: 0
+      stopInsideComposer: 0,
+      stopOutsideComposer: 0,
+      visibleBusyIndicators: 0,
+      staleProneMarkers: 0
     };
     const candidates = document.querySelectorAll(
-      'form button, button[data-testid*="stop"], button[data-test-id*="stop"]'
+      'form button, button[data-testid*="stop"], button[data-test-id*="stop"], ' +
+      'button[aria-label], [role="button"][aria-label], button[title], button#composer-submit-button'
     );
     let examined = 0;
     for (const button of candidates) {
       if (++examined > 120) break;
       if (!isVisible(button)) continue;
-      if (button.closest?.("form")) result.visibleComposerButtons += 1;
-      if (isStopButton(button)) result.recognizedStopButtons += 1;
+      const inComposer = !!button.closest?.("form");
+      if (inComposer) result.visibleComposerButtons += 1;
+      if (isStopButton(button)) {
+        result.recognizedStopButtons += 1;
+        if (inComposer) result.stopInsideComposer += 1;
+        else result.stopOutsideComposer += 1;
+      }
 
       const icons = button.querySelectorAll?.("svg rect, svg path[d]") || [];
       let iconCount = 0;
@@ -2679,6 +2695,15 @@
     );
     for (const node of busy) {
       if (isVisible(node)) result.visibleBusyIndicators += 1;
+    }
+    // Legacy ChatGPT elements can remain in the DOM after the answer ends.
+    // Count their presence separately from explicit aria-busy=true signals.
+    let raw = 0;
+    for (const node of document.querySelectorAll(
+      'main [data-testid*="generating" i], main [data-testid*="streaming" i]'
+    )) {
+      if (++raw > 100) break;
+      if (isVisible(node)) result.staleProneMarkers += 1;
     }
     return result;
   }
@@ -2701,6 +2726,13 @@
       lastEvaluationAgeMs: diagnosticLastEvaluatedAt
         ? Math.max(0, now - diagnosticLastEvaluatedAt) : -1,
       signalInventory: diagnosticSignalInventory(),
+      mainMutationCount: diagnosticMainMutationCount,
+      lastMainMutationAgeMs: diagnosticLastMainMutationAt
+        ? Math.max(0, now - diagnosticLastMainMutationAt) : -1,
+      workingEvidenceAgeMs: lastWorkingEvidenceAt
+        ? Math.max(0, now - lastWorkingEvidenceAt) : -1,
+      finishConfirmationPending: finishTimer !== null,
+      finishRestoreGracePending: activeRunRestoreGraceUntil > now,
       transitions: diagnosticTransitions.slice(-15).map((entry) => ({
         from: entry.from,
         to: entry.to,
@@ -2713,7 +2745,65 @@
     };
   }
 
+
+  function sendLongDiagnosticSample(kind) {
+    if (!diagnosticCaptureEndsAt || Date.now() >= diagnosticCaptureEndsAt) {
+      diagnosticCaptureEndsAt = 0;
+      return;
+    }
+    // Full 10-second sampling of Working (including false Working); nonworking
+    // tabs heartbeat only once a minute, preserving capacity across many tabs.
+    if (kind !== "transition") {
+      if (localState.state !== "working" &&
+          Date.now() - lastLongHeartbeatAt < 60000) return;
+      lastLongHeartbeatAt = Date.now();
+    }
+    // Only a strict allowlist of already-sanitized signals is sent. The
+    // background service worker applies a second allowlist before storage.
+    const diagnostic = statusDiagnostics();
+    try {
+      chrome.runtime.sendMessage({
+        type: "monitor-diagnostic-sample",
+        kind: kind === "transition" ? "transition" : "heartbeat",
+        sample: {
+          scriptVersion: diagnostic.scriptVersion,
+          localState: diagnostic.localState,
+          visualState: diagnostic.visualState,
+          iconState: diagnostic.iconState,
+          stopButtonVisible: diagnostic.stopButtonVisible,
+          progressIndicatorVisible: diagnostic.progressIndicatorVisible,
+          faviconLinkLast: diagnostic.faviconLinkLast,
+          documentHidden: diagnostic.documentHidden,
+          lastEvaluationAgeMs: diagnostic.lastEvaluationAgeMs,
+          workingEvidenceAgeMs: diagnostic.workingEvidenceAgeMs,
+          finishConfirmationPending: diagnostic.finishConfirmationPending,
+          finishRestoreGracePending: diagnostic.finishRestoreGracePending,
+          mainMutationCount: diagnostic.mainMutationCount,
+          lastMainMutationAgeMs: diagnostic.lastMainMutationAgeMs,
+          signalInventory: diagnostic.signalInventory
+        }
+      }).catch(() => {});
+    } catch {}
+  }
+
+  function configureLongDiagnostics(message) {
+    const end = Number(message?.endsAt);
+    if (Number(message?.endsAt) !== diagnosticCaptureEndsAt) lastLongHeartbeatAt = 0;
+    diagnosticCaptureEndsAt = message?.active === true &&
+      Number.isFinite(end) && end > Date.now() &&
+      end - Date.now() <= 2 * 60 * 60 * 1000 + 60000
+      ? end : 0;
+    if (diagnosticCaptureEndsAt) sendLongDiagnosticSample("heartbeat");
+    return diagnosticCaptureEndsAt > 0;
+  }
+
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message?.type === "monitor-diagnostic-config") {
+      const active = configureLongDiagnostics(message);
+      sendResponse({ ok: true, active, scriptVersion: CONTENT_SCRIPT_VERSION });
+      return true;
+    }
+
     if (message?.type === "monitor-get-status-diagnostics") {
       sendResponse(statusDiagnostics());
       return true;
@@ -2808,7 +2898,18 @@
     render();
   });
 
-  const observer = new MutationObserver(() => {
+  const observer = new MutationObserver((records) => {
+    if (diagnosticCaptureEndsAt > Date.now()) {
+      for (let index = 0; index < Math.min(records.length, 25); index += 1) {
+        const target = records[index].target;
+        const element = target?.nodeType === 1 ? target : target?.parentElement;
+        if (element?.closest?.("main")) {
+          diagnosticMainMutationCount += 1;
+          diagnosticLastMainMutationAt = Date.now();
+          break;
+        }
+      }
+    }
     scheduleEvaluate();
     scheduleProjectRefresh();
   });
@@ -2859,12 +2960,28 @@
     if (!document.hidden) {
       updateTimeLabels();
       scheduleEvaluate();
+      // A sleeping tab may have missed the broadcast when recording began.
+      if (!diagnosticCaptureEndsAt) {
+        sendMessage({ type: "monitor-diagnostic-current" }).then((recording) => {
+          if (recording?.active) configureLongDiagnostics(recording);
+        });
+      }
     }
   });
 
   setInterval(() => {
     evaluate({ allowFallback: true });
   }, FALLBACK_SCAN_MS);
+
+  // Continues capturing without the popup open. A sleeping/discarded tab
+  // may pause timers; gaps are visible in the exported event timestamps.
+  setInterval(() => {
+    if (diagnosticCaptureEndsAt > Date.now()) {
+      sendLongDiagnosticSample("heartbeat");
+    } else {
+      diagnosticCaptureEndsAt = 0;
+    }
+  }, LONG_DIAGNOSTIC_SAMPLE_MS);
 
   setInterval(() => {
     if (!document.hidden) updateTimeLabels();
@@ -2879,5 +2996,7 @@
     bootstrapped = true;
     sendCurrentState();
     await requestSnapshot();
+    const recording = await sendMessage({ type: "monitor-diagnostic-current" });
+    if (recording?.active) configureLongDiagnostics(recording);
   })();
 })();
