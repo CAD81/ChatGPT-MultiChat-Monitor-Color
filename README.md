@@ -128,6 +128,19 @@ That CSS is experimental and may not work in every Vivaldi release.
 
 ### Color the entire tab background in Vivaldi (experimental)
 
+**v0.4.8:** Open the extension popup and expand **Tab-Hintergründe (Vivaldi)**.
+Choose a color for each active status, then click **Vivaldi-CSS herunterladen**.
+The resulting `ChatGPT-MultiChat-Monitor-Color-v0.4.8-vivaldi-custom.css`
+contains the selected colors. Replace the older .css file in your Vivaldi
+Custom UI Modifications folder and fully restart Vivaldi. These settings do
+**not** directly change the browser's native tab strip. Enable **Sichtbaren
+CSS-Ladetest** before exporting to add a temporary cyan outline to every
+tab; if the outline appears but status colors do not, inspect Vivaldi's
+tab favicon DOM compatibility. Disable the diagnostic and export again
+when finished.
+
+
+
 **The browser extension alone changes only the favicon.** Per-tab
 background colors require a separate Vivaldi CSS modification.
 

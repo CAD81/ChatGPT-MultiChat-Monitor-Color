@@ -13,8 +13,83 @@ const DEFAULTS = {
   monitorSoundRetry: "potion",
   monitorSoundAttention: "point",
   monitorSoundError: "chan",
-  monitorSoundVolume: 0.8
+  monitorSoundVolume: 0.8,
+  vivaldiTabColors: null,
+  vivaldiCssTestOutline: false
 };
+
+
+const vivaldiColorsApi = globalThis.__chatgptVivaldiColors;
+const vivaldiColorRows = document.getElementById("vivaldiColorRows");
+const vivaldiTestOutline = document.getElementById("vivaldiTestOutline");
+const vivaldiExportCss = document.getElementById("vivaldiExportCss");
+const vivaldiResetColors = document.getElementById("vivaldiResetColors");
+const vivaldiCssMessage = document.getElementById("vivaldiCssMessage");
+const vivaldiStatusLabels = Object.freeze({
+  working:"Arbeitet",finished:"Fertig",attention:"Eingriff nötig",
+  error:"Fehler",retry:"Wiederholen",interrupted:"Unterbrochen",
+  draft:"Entwurf",pending:"Vorgemerkt"
+});
+let vivaldiColors = vivaldiColorsApi.normalized(null);
+
+function renderVivaldiColors() {
+  vivaldiColorRows.replaceChildren();
+  for (const state of vivaldiColorsApi.STATES) {
+    const row = document.createElement("label");
+    row.className = "vivaldi-color-row";
+    const text = document.createElement("span");
+    text.textContent = vivaldiStatusLabels[state];
+    const picker = document.createElement("input");
+    picker.type = "color";
+    picker.value = vivaldiColors[state];
+    picker.setAttribute("aria-label", "Tab-Farbe " + vivaldiStatusLabels[state]);
+    picker.dataset.state = state;
+    row.append(text, picker);
+    vivaldiColorRows.appendChild(row);
+  }
+}
+async function exportVivaldiCss() {
+  const css = vivaldiColorsApi.generate(vivaldiColors, {
+    testOutline: vivaldiTestOutline.checked,
+    version: chrome.runtime.getManifest().version
+  });
+  const url = URL.createObjectURL(new Blob([css], {type:"text/css;charset=utf-8"}));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "ChatGPT-MultiChat-Monitor-Color-v" +
+    chrome.runtime.getManifest().version + "-vivaldi-custom.css";
+  document.body.appendChild(link);
+  try {
+    link.click();
+    vivaldiCssMessage.textContent = "CSS heruntergeladen. Die vorherige Datei im VivaldiCSS-Ordner ersetzen und Vivaldi neu starten.";
+  } finally {
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+}
+vivaldiColorRows.addEventListener("input", async event => {
+  const input = event.target;
+  if (!input || input.type !== "color" || !vivaldiColorsApi.STATES.includes(input.dataset.state)) return;
+  vivaldiColors = vivaldiColorsApi.normalized({
+    ...vivaldiColors, [input.dataset.state]:input.value
+  });
+  await chrome.storage.local.set({vivaldiTabColors:vivaldiColors});
+  vivaldiCssMessage.textContent = "Farbe gespeichert. Für Vivaldi muss die CSS neu exportiert und installiert werden.";
+});
+vivaldiTestOutline.addEventListener("change", () => {
+  chrome.storage.local.set({vivaldiCssTestOutline:vivaldiTestOutline.checked});
+});
+vivaldiExportCss.addEventListener("click", () => {
+  exportVivaldiCss().catch(() => {
+    vivaldiCssMessage.textContent = "CSS-Download fehlgeschlagen.";
+  });
+});
+vivaldiResetColors.addEventListener("click", async () => {
+  vivaldiColors = vivaldiColorsApi.normalized(null);
+  await chrome.storage.local.set({vivaldiTabColors:vivaldiColors});
+  renderVivaldiColors();
+  vivaldiCssMessage.textContent = "Standardfarben wiederhergestellt. CSS für Vivaldi neu exportieren.";
+});
 
 const enabled = document.getElementById("enabled");
 const showIdle = document.getElementById("showIdle");
@@ -414,6 +489,9 @@ async function restoreHiddenChats(button) {
 async function load() {
   const settings = await chrome.storage.local.get(DEFAULTS);
 
+  vivaldiColors = vivaldiColorsApi.normalized(settings.vivaldiTabColors);
+  vivaldiTestOutline.checked = settings.vivaldiCssTestOutline === true;
+  renderVivaldiColors();
   enabled.checked = settings.monitorEnabled !== false;
   showIdle.checked = settings.monitorShowIdle === true;
   compact.checked = settings.monitorCompact === true;

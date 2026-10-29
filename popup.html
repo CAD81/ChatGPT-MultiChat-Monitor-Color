@@ -76,6 +76,7 @@ kbd{padding:1px 4px;border:1px solid #3c4758;border-bottom-width:2px;border-radi
 .diagnostic-controls button:disabled{opacity:.55;cursor:default}
 .diagnostic-progress{padding:0 12px 10px}
 #diagnosticReportText{margin:0 12px 12px;width:calc(100% - 24px);box-sizing:border-box;max-height:175px;background:var(--control);color:var(--text);border:1px solid var(--control-border);border-radius:6px;padding:8px;font-size:11px}
+ .vivaldi-colors{display:grid;gap:6px;margin:10px 0}.vivaldi-color-row{display:flex;align-items:center;justify-content:space-between;gap:10px}.vivaldi-color-row input{width:55px;height:28px;border:1px solid var(--control-border);border-radius:5px;background:var(--control);cursor:pointer}.vivaldi-test{display:flex;align-items:center;gap:7px;font-size:10px;margin:9px 0}.vivaldi-buttons{display:grid;grid-template-columns:1.5fr 1fr;gap:6px;margin:10px 0}.vivaldi-buttons button{font-size:10px;padding:5px 3px}
 </style>
 </head>
 <body>
@@ -124,6 +125,22 @@ kbd{padding:1px 4px;border:1px solid #3c4758;border-bottom-width:2px;border-radi
   <div class="row"><div><div class="label">Dim when inactive</div><div class="hint">Fade the monitor until you hover or focus it.</div></div><label class="switch"><input id="hoverFocus" type="checkbox"><span class="slider"></span></label></div>
   <div class="row"><div><div class="label">State animation</div><div class="hint">Working pulse and short state highlights.</div></div><label class="switch"><input id="animations" type="checkbox"><span class="slider"></span></label></div>
 </div>
+
+
+<details class="fold" id="vivaldiTabColorsSection">
+  <summary>Tab-Hintergründe (Vivaldi)<span class="summary-spacer"></span><span class="summary-state">CSS erforderlich</span></summary>
+  <div class="fold-body">
+    <div class="hint">Die Tab-Hintergründe werden nicht direkt durch das Plugin geändert. Vivaldi muss die exportierte CSS-Datei separat laden.</div>
+    <div id="vivaldiColorRows" class="vivaldi-colors"></div>
+    <label class="vivaldi-test"><input id="vivaldiTestOutline" type="checkbox"> Sichtbaren CSS-Ladetest aktivieren (türkise Umrandung aller Tabs)</label>
+    <div class="vivaldi-buttons">
+      <button id="vivaldiExportCss" type="button">Vivaldi-CSS herunterladen</button>
+      <button id="vivaldiResetColors" type="button">Standardfarben</button>
+    </div>
+    <div class="hint" id="vivaldiCssMessage" aria-live="polite">CSS in Dokumente\VivaldiCSS legen; alte CSS entfernen. Unter vivaldi://experiments CSS-Modifikationen aktivieren, Ordner unter Darstellung auswählen, Browser neu starten.</div>
+    <div class="hint">Wenn die türkise Umrandung erscheint, aber keine Statusfarben: Vivaldi lädt CSS, kann aber möglicherweise die Favicon-URLs nicht für einzelne Tabs erkennen.</div>
+  </div>
+</details>
 
 <div class="actions">
   <button id="resetPosition" type="button">Reset position</button>
@@ -187,6 +204,7 @@ kbd{padding:1px 4px;border:1px solid #3c4758;border-bottom-width:2px;border-radi
 
 <div class="footer">No conversation content is stored in history.</div>
 <script src="status-diagnostics.js"></script>
+<script src="vivaldi-colors.js"></script>
 <script src="popup.js"></script>
 </body>
 </html>
