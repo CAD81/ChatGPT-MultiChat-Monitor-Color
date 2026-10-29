@@ -1251,7 +1251,7 @@ test("completion remains visibly Finished on the focused ChatGPT tab", () => {
 test("long recorder runs after popup closes, with a strict end time and a manual false-Working marker", () => {
   const ui = fs.readFileSync(path.join(root, "popup.html"), "utf8");
   for (const id of ["longDiagnosticStart","longDiagnosticStop","longDiagnosticMark",
-    "longDiagnosticCopy","longDiagnosticClear","longDiagnosticDuration"]) {
+    "longDiagnosticCopy","longDiagnosticDownload","longDiagnosticClear","longDiagnosticDuration"]) {
     assert.match(ui, new RegExp('id="' + id + '"'));
   }
   assert.match(ui, /value="60" selected/);
@@ -1423,4 +1423,14 @@ test("long recording prioritizes ten-second Working probes and limits idle probe
   assert.match(fn,/localState\.state !== "working"/);
   assert.match(fn,/Date\.now\(\) - lastLongHeartbeatAt < 60000/);
   assert.match(contentSource,/if \(previousState !== state\) sendLongDiagnosticSample\("transition"\)/);
+});
+
+
+test("large diagnostic logs can be exported as an explicitly downloaded JSON file", () => {
+  assert.match(popupSource, /function downloadLongDiagnosticCapture\(\)/);
+  assert.match(popupSource, /application\/json;charset=utf-8/);
+  assert.match(popupSource, /chrome\.runtime\.getManifest\(\)\.version \+ "-diagnose-"/);
+  assert.match(popupSource, /longDiagnosticDownload\.addEventListener\("click", downloadLongDiagnosticCapture\)/);
+  assert.match(popupSource, /longDiagnosticStart\.disabled = active \|\| saved > 0/);
+  assert.doesNotMatch(popupSource, /fetch\(["']https?:\/\/.*diagnos/i);
 });

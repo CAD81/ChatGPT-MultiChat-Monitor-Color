@@ -101,7 +101,8 @@ agreed. The generated `findings` section classifies the suspected layer
 browser favicon, background monitor or Vivaldi UI). These are *diagnostic
 hypotheses* based on the user-marked timestamp, not proof of what the
 ChatGPT backend was doing. When sufficient data is available, stop capture and choose
-**Bericht kopieren**. The report contains only tab aliases, state labels,
+**JSON herunterladen** to upload the file into ChatGPT (recommended for
+long captures), or **Bericht kopieren** for short reports. The report contains only tab aliases, state labels,
 technical counters and timestamps. It excludes chat contents, titles,
 full tab IDs, URLs, cookies and DOM text. Nothing is sent automatically.
 Working tabs are sampled approximately every 10 seconds, nonworking tabs

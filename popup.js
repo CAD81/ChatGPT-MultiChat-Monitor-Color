@@ -119,6 +119,7 @@ const longDiagnosticStart = document.getElementById("longDiagnosticStart");
 const longDiagnosticStop = document.getElementById("longDiagnosticStop");
 const longDiagnosticMark = document.getElementById("longDiagnosticMark");
 const longDiagnosticCopy = document.getElementById("longDiagnosticCopy");
+const longDiagnosticDownload = document.getElementById("longDiagnosticDownload");
 const longDiagnosticClear = document.getElementById("longDiagnosticClear");
 const longDiagnosticStatus = document.getElementById("longDiagnosticStatus");
 const longDiagnosticReport = document.getElementById("longDiagnosticReport");
@@ -133,10 +134,11 @@ async function refreshLongDiagnosticStatus(note = "") {
   const report = response?.report || {};
   const active = report.active === true;
   const saved = Number(report.received || 0);
-  longDiagnosticStart.disabled = active;
+  longDiagnosticStart.disabled = active || saved > 0;
   longDiagnosticStop.disabled = !active;
   longDiagnosticMark.disabled = !active;
   longDiagnosticCopy.disabled = saved === 0;
+  longDiagnosticDownload.disabled = saved === 0;
   longDiagnosticClear.disabled = active || saved === 0;
   const end = report.endsAt ? new Date(report.endsAt).toLocaleString("de-DE") : "";
   longDiagnosticStatus.textContent = note || (active
@@ -145,7 +147,8 @@ async function refreshLongDiagnosticStatus(note = "") {
       " ChatGPT-Tabs. Menü darf geschlossen werden."
     : saved > 0
       ? "Aufzeichnung beendet. " + saved + " Proben, " +
-        (report.dropped || 0) + " ältere wegen Größenlimit verworfen. Bericht kopieren."
+        (report.dropped || 0) + " ältere wegen Größenlimit verworfen. " +
+        "Bericht kopieren oder als JSON herunterladen; danach Aufzeichnung löschen."
       : "Keine Langzeitdiagnose aktiv. Dauer auswählen und starten.");
   return report;
 }
@@ -157,7 +160,13 @@ async function startLongDiagnosticCapture() {
       type: "monitor-diagnostic-start",
       minutes: Number(longDiagnosticDuration.value)
     });
-    if (!result?.ok) throw new Error("start");
+    if (!result?.ok) {
+      if (result?.error === "existing-recording") {
+        await refreshLongDiagnosticStatus("Eine Aufzeichnung ist bereits vorhanden. Zuerst Bericht sichern und alte Aufzeichnung löschen.");
+        return;
+      }
+      throw new Error("start");
+    }
     const detail = result.readyTabs + " Tab-Skripte bereit, " +
       result.unsupportedTabs + " nicht bereit.";
     await refreshLongDiagnosticStatus("Aufzeichnung gestartet. " + detail +
@@ -225,6 +234,33 @@ async function copyLongDiagnosticCapture() {
     longDiagnosticStatus.textContent = "Bericht konnte nicht abgerufen werden.";
   }
 }
+
+async function downloadLongDiagnosticCapture() {
+  try {
+    const result = await chrome.runtime.sendMessage({
+      type:"monitor-diagnostic-get",includeEvents:true
+    });
+    if (!result?.ok || !result.report?.events?.length) throw new Error("missing");
+    const json = JSON.stringify(result.report,null,2);
+    const url = URL.createObjectURL(new Blob([json],{type:"application/json;charset=utf-8"}));
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    const stamp = new Date().toISOString().replace(/[:.]/g,"-");
+    anchor.download = "ChatGPT-MultiChat-Monitor-Color-v" +
+      chrome.runtime.getManifest().version + "-diagnose-" + stamp + ".json";
+    document.body.appendChild(anchor);
+    try {
+      anchor.click();
+      longDiagnosticStatus.textContent = "JSON-Bericht heruntergeladen. Du kannst die Datei hier im Chat hochladen.";
+    } finally {
+      anchor.remove();
+      setTimeout(() => URL.revokeObjectURL(url),1000);
+    }
+  } catch {
+    longDiagnosticStatus.textContent = "JSON-Export fehlgeschlagen. Bericht alternativ kopieren.";
+  }
+}
+
 async function clearLongDiagnosticCapture() {
   try {
     const result = await chrome.runtime.sendMessage({type:"monitor-diagnostic-clear"});
@@ -240,6 +276,7 @@ longDiagnosticStart.addEventListener("click", startLongDiagnosticCapture);
 longDiagnosticStop.addEventListener("click", stopLongDiagnosticCapture);
 longDiagnosticMark.addEventListener("click", markLongDiagnosticFailure);
 longDiagnosticCopy.addEventListener("click", copyLongDiagnosticCapture);
+longDiagnosticDownload.addEventListener("click", downloadLongDiagnosticCapture);
 longDiagnosticClear.addEventListener("click", clearLongDiagnosticCapture);
 
 const tabDiagnostics = document.getElementById("tabDiagnostics");
