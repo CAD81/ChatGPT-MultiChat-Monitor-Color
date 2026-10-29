@@ -16,19 +16,19 @@ const { makeSample, diagnosis } = ctx.__chatgptMultichatDiagnosticReport;
 
 function sample(overrides = {}, monitor = { state: "idle" }) {
   return makeSample({
-    scriptVersion: "0.4.7",
+    scriptVersion: "0.4.10",
     initialized: true, localState: "idle",
     iconState: "idle", visualState: "idle",
     signalInventory: { visibleComposerButtons: 1, squareStopCandidates: 0,
       recognizedStopButtons: 0, visibleBusyIndicators: 0 },
     ...overrides
-  }, monitor, "data:image/png;base64,aGVsbG8=", "0.4.7");
+  }, monitor, "data:image/png;base64,aGVsbG8=", "0.4.10");
 }
 
 test("diagnostic report only contains allow-listed state and counter fields", () => {
   const secret = "secret-private-conversation-string";
   const result = makeSample({
-    scriptVersion: "0.4.7",
+    scriptVersion: "0.4.10",
     initialized: true,
     localState: "working",
     iconState: "idle",
@@ -43,7 +43,7 @@ test("diagnostic report only contains allow-listed state and counter fields", ()
       secret: secret
     },
     transitions: [{ from: "idle", to: "working", secondsAgo: 1, text: secret }]
-  }, { state: "working", title: secret, url: secret }, "chrome-extension://abc/assets/tab-status/working.svg", "0.4.7");
+  }, { state: "working", title: secret, url: secret }, "chrome-extension://abc/assets/tab-status/working.svg", "0.4.10");
   const json = JSON.stringify(result);
   assert.equal(json.includes(secret), false);
   assert.equal(json.includes("chatgpt.com"), false);

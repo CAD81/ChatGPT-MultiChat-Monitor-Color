@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 0.4.10 - 2026-10-29 (Favicon reconciliation reliability)
+
+- Analyzed the user-provided 60-minute/1,467-event v0.4.9 browser log. A total of 110 Finished samples retained a browser-reported Working favicon while the page icon and background monitor both reported Finished.
+- Give each real favicon state change a fresh versioned SVG URL to bypass stale browser favicon caching.
+- Independently compare the browser's reported favicon state to the page status, and attempt a bounded favicon refresh after two consecutive mismatches. Successful states use 60-second health checks.
+- Extend quick and long diagnostics with browser favicon state and repair attempts; no raw tab URLs, chat text, favicon URLs or identifying tab IDs enter reports.
+- Align Stop-button diagnostic inventory more closely with the actual working-state detector. Keep Vivaldi CSS file-path matching compatible with URL query strings.
+
+
 ## 0.4.9 - 2026-10-29 (Completion-state reliability and long diagnostics)
 
 - Restrict stale generation markers: only visibly and explicitly busy `aria-busy=true` indicators qualify as active; `generating` / `streaming` testids alone cannot leave Working stuck.
