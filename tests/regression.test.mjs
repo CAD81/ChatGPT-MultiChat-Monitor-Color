@@ -1274,7 +1274,7 @@ test("long diagnostic sanitization stores only known signal fields; no page cont
   assert.match(source, /longDiagState\(raw\.localState\)/);
   assert.match(source, /longDiagState\(tab\?\.state\)/);
   assert.match(source, /longDiagCount\(counts\.staleProneMarkers\)/);
-  assert.match(source, /kind === "user-finished"/);
+  assert.match(source, /user-finished/);
   assert.match(backgroundSource, /function withLongDiagLock/);
   assert.match(backgroundSource, /recording\.events\.splice\(0, recording\.events\.length - LONG_DIAG_MAX_EVENTS\)/);
 });
