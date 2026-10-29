@@ -28,7 +28,7 @@ for file in manifest.json background.js content.js tab-status.js popup.html popu
   cp "$root/$file" "$stage/$file"
 done
 
-for dir in assets/icons assets/tab-status sounds; do
+for dir in assets/icons assets/tab-status sounds vivaldi; do
   if [[ ! -d "$root/$dir" ]]; then
     echo "ERROR: missing extension resources: $dir" >&2
     exit 1
@@ -45,7 +45,7 @@ rm -f "$archive" "$archive.sha256"
   zip -X -q -r "$archive" \
     manifest.json background.js content.js tab-status.js \
     popup.html popup.js offscreen.html offscreen.js \
-    LICENSE README.md VERSION.txt assets/icons assets/tab-status sounds
+    LICENSE README.md VERSION.txt assets/icons assets/tab-status sounds vivaldi
 )
 
 unzip -t "$archive" >/dev/null
@@ -54,6 +54,7 @@ unzip -Z -1 "$archive" | grep -Fqx 'VERSION.txt'
 unzip -Z -1 "$archive" | grep -Fqx 'tab-status.js'
 unzip -Z -1 "$archive" | grep -Fqx 'assets/tab-status/working.svg'
 unzip -Z -1 "$archive" | grep -Fqx 'sounds/pop.wav'
+unzip -Z -1 "$archive" | grep -Fqx 'vivaldi/chatgpt-multichat-monitor-color.css'
 
 if [[ "$(unzip -p "$archive" VERSION.txt)" != "v$version" ]]; then
   echo "ERROR: VERSION.txt does not match manifest.json" >&2
@@ -75,10 +76,19 @@ if unzip -Z -1 "$archive" | grep -Eq '(^|/)(\.git|\.github|tests|scripts)(/|$)';
   exit 1
 fi
 
+cssname="ChatGPT-MultiChat-Monitor-Color-v$version-vivaldi.css"
+cp "$root/vivaldi/chatgpt-multichat-monitor-color.css" "$out_dir/$cssname"
+if ! grep -Fq 'srcset*=' "$out_dir/$cssname"; then
+  echo "ERROR: Vivaldi CSS asset lacks srcset support" >&2
+  exit 1
+fi
+
 (
   cd "$out_dir"
   sha256sum "$name" > "$name.sha256"
+  sha256sum "$cssname" > "$cssname.sha256"
 )
 echo "Validated versioned extension ZIP: $archive"
 echo "Version file: v$version"
 echo "Checksum: $archive.sha256"
+echo "Vivaldi UI CSS: $out_dir/$cssname"

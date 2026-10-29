@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 0.4.5 - 2026-10-29 (Vivaldi tab background colors)
+
+- Improved the optional Vivaldi tab background CSS to handle favicon img srcset, src and inline style attributes.
+- Apply full-tab backgrounds for identified active/completed/error/attention and other non-idle states; inactive tabs retain the user's Vivaldi theme.
+- Include the custom Vivaldi CSS in the extension ZIP and publish a separately versioned Vivaldi CSS asset under GitHub Releases.
+- Add packaging and CSS compatibility regression tests and explicit Vivaldi configuration and diagnostic instructions.
+- Status detection and extension browser permissions remain unchanged; live Vivaldi UI compatibility is still unverified.
+
+
 - Added an automatic GitHub Releases workflow that publishes a version-labelled, installable ZIP when the new main version passes all regression checks.
 - Added root-level `VERSION.txt`, matching `manifest.json`, packaging integrity checks, and a SHA-256 checksum file.
 - Changed the recommended downloads to this fork's Releases → Assets instead of the unversioned Code → Download ZIP archive.
