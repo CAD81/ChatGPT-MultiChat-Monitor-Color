@@ -1111,7 +1111,6 @@ async function activateTab(tabId) {
     if (!String(tab.url || "").startsWith("https://chatgpt.com/")) return false;
     await chrome.windows.update(tab.windowId, { focused: true });
     await chrome.tabs.update(tabId, { active: true });
-    await acknowledgeFinishedTab(tabId);
     return true;
   } catch {
     return false;
@@ -1568,18 +1567,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       .then(async () => {
         const snapshotChanged = upsertState(message, sender.tab);
 
-        if (message.state === "finished" &&
-            sender.tab?.active &&
-            Number.isInteger(sender.tab?.windowId)) {
-          try {
-            const windowInfo = await chrome.windows.get(sender.tab.windowId);
-            if (windowInfo.focused) {
-              const acknowledged = await acknowledgeFinishedTab(sender.tab.id);
-              if (acknowledged) return;
-            }
-          } catch {}
-        }
-
+        // Keep Finished visible on the focused tab until a new response or
+        // an explicit acknowledgment; focus alone must not make it Idle.
         if (snapshotChanged) await broadcast();
       })
       .then(() => sendResponse({ ok: true }))
@@ -1833,28 +1822,6 @@ chrome.commands.onCommand.addListener((command) => {
   } else if (command === "next-attention-chat") {
     cycleChat(["error", "retry", "attention", "finished", "pending"]).catch(() => {});
   }
-});
-
-chrome.tabs.onActivated.addListener((activeInfo) => {
-  chrome.windows.get(activeInfo.windowId)
-    .then((windowInfo) => {
-      if (!windowInfo.focused) return false;
-      return acknowledgeFinishedTab(activeInfo.tabId);
-    })
-    .catch(() => {});
-});
-
-chrome.windows.onFocusChanged.addListener((windowId) => {
-  if (windowId === chrome.windows.WINDOW_ID_NONE) return;
-  chrome.tabs.query({ active: true, windowId })
-    .then((tabs) => {
-      const tab = tabs[0];
-      if (tab && Number.isInteger(tab.id)) {
-        return acknowledgeFinishedTab(tab.id);
-      }
-      return false;
-    })
-    .catch(() => {});
 });
 
 async function handleTabRemoved(tabId) {

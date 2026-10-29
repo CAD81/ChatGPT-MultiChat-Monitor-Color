@@ -4,7 +4,7 @@
 
   const FINISH_CONFIRM_MS = 1400;
   const WORKING_SIGNAL_GRACE_MS = 3500;
-  const CONTENT_SCRIPT_VERSION = "0.4.7";
+  const CONTENT_SCRIPT_VERSION = "0.4.9";
   const RECENT_TTL_MS = 180000;
   const ATTENTION_TTL_MS = 30 * 60 * 1000;
   const ERROR_TTL_MS = 10 * 60 * 1000;
@@ -326,7 +326,8 @@
     // explicitly active main-content indicators rather than static text.
     const candidates = document.querySelectorAll(
       'main [aria-busy="true"][data-testid], ' +
-      'main [data-testid*="generating" i], main [data-testid*="streaming" i]'
+      'main [data-testid*="generating" i][aria-busy="true"], ' +
+      'main [data-testid*="streaming" i][aria-busy="true"]'
     );
     for (const candidate of candidates) {
       if (isVisible(candidate)) return true;

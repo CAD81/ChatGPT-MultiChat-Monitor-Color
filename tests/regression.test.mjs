@@ -1213,3 +1213,35 @@ test("transitions and evaluation counters are bounded and no URLs/titles are in 
   assert.match(fn, /transitions:/);
   assert.doesNotMatch(fn, /document\.title|location\.href|textContent|innerText|localStorage|outerHTML/);
 });
+
+
+test("stale generating/streaming data-testid alone does not keep a completed response Working", () => {
+  const source = functionSource(contentSource, "activeGenerationIndicator");
+  assert.doesNotMatch(source, /'main \[data-testid\*="generating" i\],/);
+  assert.match(source, /\[data-testid\*="generating" i\]\[aria-busy="true"\]/);
+  assert.match(source, /\[data-testid\*="streaming" i\]\[aria-busy="true"\]/);
+  const indicator = contentFunction("activeGenerationIndicator", {
+    document: {
+      querySelectorAll(query) {
+        assert.ok(!query.includes('[data-testid*="generating" i],'));
+        return [];
+      }
+    },
+    isVisible: () => true
+  });
+  assert.equal(indicator(), false);
+});
+
+test("completion remains visibly Finished on the focused ChatGPT tab", () => {
+  const source = backgroundSource;
+  const stateHandler = source.slice(
+    source.indexOf('if (message?.type === "monitor-state")'),
+    source.indexOf('if (message?.type === "monitor-get-active-run")')
+  );
+  assert.doesNotMatch(stateHandler, /acknowledgeFinishedTab/);
+  const activateTab = functionSource(source, "activateTab");
+  assert.doesNotMatch(activateTab, /acknowledgeFinishedTab/);
+  assert.doesNotMatch(source, /chrome\.tabs\.onActivated\.addListener/);
+  assert.doesNotMatch(source, /chrome\.windows\.onFocusChanged\.addListener/);
+  assert.match(source, /async function acknowledgeFinishedTab/);
+});
