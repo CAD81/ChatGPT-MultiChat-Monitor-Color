@@ -39,6 +39,83 @@ const clearHistory = document.getElementById("clearHistory");
 const historyRoot = document.getElementById("history");
 const historySummary = document.getElementById("historySummary");
 
+const tabDiagnostics = document.getElementById("tabDiagnostics");
+const refreshTabDiagnostics = document.getElementById("refreshTabDiagnostics");
+
+const STATUS_TRANSLATIONS = Object.freeze({
+  working: "Arbeitet", finished: "Fertig", attention: "Eingriff nötig",
+  error: "Fehler", retry: "Wiederholen", interrupted: "Unterbrochen",
+  draft: "Entwurf", pending: "Vorgemerkt", idle: "Inaktiv"
+});
+
+function statusName(state) {
+  return STATUS_TRANSLATIONS[state] || String(state || "Unbekannt");
+}
+
+function appendDiagnostic(label, value) {
+  const row = document.createElement("div");
+  row.className = "tab-diagnostics-row";
+  const caption = document.createElement("span");
+  caption.textContent = label;
+  const result = document.createElement("span");
+  result.textContent = value;
+  row.append(caption, result);
+  tabDiagnostics.appendChild(row);
+}
+
+async function loadTabDiagnostics() {
+  refreshTabDiagnostics.disabled = true;
+  tabDiagnostics.textContent = "Lade Status …";
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab || !/^https:\/\/chatgpt\.com\//.test(String(tab.url || ""))) {
+      tabDiagnostics.textContent = "Bitte zuerst einen ChatGPT-Tab öffnen.";
+      return;
+    }
+
+    const [local, snapshot] = await Promise.all([
+      chrome.tabs.sendMessage(tab.id, { type: "monitor-get-status-diagnostics" })
+        .catch(() => null),
+      chrome.runtime.sendMessage({ type: "monitor-get-snapshot" })
+        .catch(() => null)
+    ]);
+    if (!local || typeof local.scriptVersion !== "string") {
+      tabDiagnostics.textContent = "Kein aktuelles Diagnoseskript im Tab. Nach dem Speichern ungesendeter Eingaben diesen ChatGPT-Tab manuell neu laden.";
+      return;
+    }
+
+    const row = Array.isArray(snapshot?.chats)
+      ? snapshot.chats.find((chat) => chat.tabId === tab.id)
+      : null;
+    const installedVersion = chrome.runtime.getManifest().version;
+
+    tabDiagnostics.replaceChildren();
+    appendDiagnostic("Erkennung", statusName(local.localState));
+    appendDiagnostic("Monitor", row ? statusName(row.state) : "Nicht verfügbar");
+    appendDiagnostic("Tab-Symbol", statusName(local.iconState));
+    appendDiagnostic("Stopp-Button sichtbar", local.stopButtonVisible ? "Ja" : "Nein");
+    appendDiagnostic("Arbeitsanzeige sichtbar", local.progressIndicatorVisible ? "Ja" : "Nein");
+    appendDiagnostic("Arbeitsstatus zuletzt gesehen", local.recentWorkingEvidence ? "Kürzlich" : "Nein");
+    appendDiagnostic("Skriptversion", local.scriptVersion);
+
+    if (local.scriptVersion !== installedVersion) {
+      appendDiagnostic("Hinweis", "Altes Tab-Skript – Tab nach Sicherung neu laden");
+    } else if (local.localState !== "working" &&
+        (local.stopButtonVisible || local.progressIndicatorVisible)) {
+      appendDiagnostic("Widerspruch", "Laufender Chat trotz inaktivem Status");
+    } else if (local.localState !== local.iconState &&
+        !(local.localState === "idle" && local.visualState === "pending")) {
+      appendDiagnostic("Widerspruch", "Favicon stimmt nicht mit Erkennung überein");
+    }
+  } catch {
+    tabDiagnostics.textContent = "Diagnose nicht verfügbar. ChatGPT-Tab öffnen und erneut prüfen.";
+  } finally {
+    refreshTabDiagnostics.disabled = false;
+  }
+}
+
+refreshTabDiagnostics.addEventListener("click", loadTabDiagnostics);
+
 const updateNotice = document.getElementById("updateNotice");
 const updateVersion = document.getElementById("updateVersion");
 const updateLink = document.getElementById("updateLink");
@@ -265,7 +342,8 @@ async function load() {
   refreshSoundUi();
   await Promise.all([
     loadHistory(),
-    loadUpdateInfo()
+    loadUpdateInfo(),
+    loadTabDiagnostics()
   ]);
 }
 

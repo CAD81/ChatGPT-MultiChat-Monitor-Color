@@ -924,8 +924,9 @@ function modernStopFixture({ withinComposer = true, icon = MODERN_CHATGPT_STOP_I
       return null;
     },
     closest(selector) {
-      assert.equal(selector, "form[data-chatgpt-composer]");
-      return withinComposer ? {} : null;
+      if (selector === "form[data-chatgpt-composer]") return withinComposer ? {} : null;
+      if (selector === "form") return null;
+      return null;
     },
     querySelectorAll(selector) {
       assert.match(selector, /svg/);
@@ -938,8 +939,9 @@ test("unlabelled current ChatGPT composer Stop icon is recognized as Working", (
   const isStopButton = contentFunction("isStopButton");
   assert.equal(isStopButton(modernStopFixture()), true);
   assert.equal(isStopButton(modernStopFixture({ withinComposer: false })), false);
-  assert.equal(isStopButton(modernStopFixture({ type: "submit" })), false);
-  assert.equal(isStopButton(modernStopFixture({ icon: "M3 3H13V13H3Z" })), false);
+  assert.equal(isStopButton(modernStopFixture({ type: "submit" })), true);
+  assert.equal(isStopButton(modernStopFixture({ icon: "M3 3H13V13H3Z" })), true, "square path is a Stop icon");
+  assert.equal(isStopButton(modernStopFixture({ icon: "M3 8L12 3L12 13Z" })), false, "Send arrow is not Stop");
 });
 
 test("fast Working detection includes unlabeled composer controls", () => {
@@ -982,6 +984,7 @@ test("new composer Stop icon yields Working then Done without relying on transla
   });
   const detectWorking = contentFunction("detectWorking", {
     directWorkingSignal,
+    activeGenerationIndicator() { return false; },
     fallbackWorkingSignal() { return false; }
   });
 
@@ -998,6 +1001,8 @@ test("new composer Stop icon yields Working then Done without relying on transla
     finishTimer: null,
     manualStopUntil: 0,
     FINISH_CONFIRM_MS: 1400,
+    WORKING_SIGNAL_GRACE_MS: 3500,
+    lastWorkingEvidenceAt: 0,
     Date,
     detectWorking,
     detectWorkPhase: () => "",
@@ -1020,8 +1025,145 @@ test("new composer Stop icon yields Working then Done without relying on transla
   assert.equal(ctx.localState.state, "working");
 
   generating = false;
+  ctx.lastWorkingEvidenceAt = 0;
   evaluate({ allowFallback: false });
   assert.equal(typeof ctx.finishCallback, "function");
   ctx.finishCallback();
   assert.equal(ctx.localState.state, "finished");
+});
+
+
+test("stop controls with square SVG rect are detected even without labels or test ids", () => {
+  const isStopButton = contentFunction("isStopButton");
+  const rect = { tagName: "rect", getAttribute(name) {
+    return ({ width: "10", height: "10", rx: "1.5" })[name] ?? null;
+  }};
+  const button = {
+    disabled: false,
+    textContent: "",
+    getAttribute() { return null; },
+    closest(selector) {
+      if (selector === "form[data-chatgpt-composer]") return {};
+      return null;
+    },
+    querySelectorAll() { return [rect]; }
+  };
+  assert.equal(isStopButton(button), true);
+  rect.getAttribute = (name) => ({ width: "14", height: "4", rx: "1" })[name] ?? null;
+  assert.equal(isStopButton(button), false, "rectangular playbar is not a Stop square");
+});
+
+test("modern button without composer marker is recognized through prompt-containing form", () => {
+  const isStopButton = contentFunction("isStopButton");
+  const form = { querySelector(selector) {
+    assert.match(selector, /data-composer-markdown/);
+    return {};
+  }};
+  const button = {
+    textContent: "",
+    getAttribute() { return null; },
+    closest(selector) {
+      if (selector === "form[data-chatgpt-composer]") return null;
+      if (selector === "form") return form;
+      return null;
+    },
+    querySelectorAll() { return [{
+      tagName: "rect", getAttribute(name) { return name === "width" || name === "height" ? "9" : null; }
+    }]; }
+  };
+  assert.equal(isStopButton(button), true);
+  form.querySelector = () => null;
+  assert.equal(isStopButton(button), false, "unverified form excluded");
+});
+
+test("voice and dictation Stop controls do not generate a Working state", () => {
+  const isStopButton = contentFunction("isStopButton");
+  const button = {
+    disabled: false,
+    textContent: "",
+    getAttribute(name) { return name === "aria-label" ? "Stop dictation" : null; },
+    closest(selector) { return selector === "form[data-chatgpt-composer]" ? {} : null; },
+    querySelectorAll() { return [{
+      tagName: "rect", getAttribute(name) { return name === "width" || name === "height" ? "9" : null; }
+    }]; }
+  };
+  assert.equal(isStopButton(button), false);
+  for (const name of ["Stop recording", "Diktieren stoppen", "Aufnahme stoppen", "Stop voice"]) {
+    button.getAttribute = (key) => key === "aria-label" ? name : null;
+    assert.equal(isStopButton(button), false, name);
+  }
+});
+
+test("secondary visible generation indicator is an independent Working signal", () => {
+  const activeGenerationIndicator = contentFunction("activeGenerationIndicator", {
+    document: { querySelectorAll(selector) {
+      assert.match(selector, /\[aria-busy="true"\]/);
+      return [{ visible: true }];
+    }},
+    isVisible: (node) => !!node.visible
+  });
+  assert.equal(activeGenerationIndicator(), true);
+  const detectWorking = contentFunction("detectWorking", {
+    directWorkingSignal: () => false,
+    activeGenerationIndicator,
+    fallbackWorkingSignal: () => false
+  });
+  assert.equal(detectWorking(false), true);
+});
+
+test("a brief missing Stop signal cannot immediately mark a running chat Done", () => {
+  let now = 20000;
+  const ctx = {
+    localState: { state: "working", updatedAt: 19000 },
+    lastUrl: "https://chatgpt.com/c/grace", lastTitle: "Grace",
+    location: { href: "https://chatgpt.com/c/grace" },
+    document: { title: "Grace" },
+    WORKING_SIGNAL_GRACE_MS: 3500,
+    FINISH_CONFIRM_MS: 1400,
+    lastWorkingEvidenceAt: 19500,
+    manualStopUntil: 0,
+    activeRunRestoreGraceUntil: 0,
+    finishTimer: null,
+    Date: { now: () => now },
+    paintTabStatus() {},
+    detectWorking: () => false,
+    detectVisibleIssue: () => null,
+    promptHasDraft: () => false,
+    clearFinishTimer() { ctx.finishTimer = null; },
+    clearResetTimer() {},
+    setTimeout(callback) { ctx.confirmDone = callback; return 1; }
+  };
+  const evaluate = vm.runInNewContext("(" + functionSource(contentSource, "evaluate") + ")", ctx);
+  evaluate({ allowFallback: false });
+  assert.equal(ctx.finishTimer, null, "do not begin Done confirmation during short signal gap");
+  now = 25000;
+  evaluate({ allowFallback: false });
+  assert.equal(ctx.finishTimer, 1, "a persistent absence may begin Done confirmation");
+});
+
+test("diagnostics only expose statuses and technical signals, not conversation content", () => {
+  const f = functionSource(contentSource, "statusDiagnostics");
+  assert.match(f, /scriptVersion: CONTENT_SCRIPT_VERSION/);
+  assert.match(f, /iconState: match \? match\[1\]/);
+  assert.doesNotMatch(f, /innerText|textContent|document\.title|location\.href|localStorage/);
+  assert.match(contentSource, /message\?\.type === "monitor-get-status-diagnostics"/);
+});
+
+
+test("popup status diagnostics only request active-tab technical status and registry state", () => {
+  const html = fs.readFileSync(path.join(root, "popup.html"), "utf8");
+  assert.match(html, /id="tabDiagnostics"/);
+  assert.match(html, /id="refreshTabDiagnostics"/);
+  assert.match(popupSource, /type: "monitor-get-status-diagnostics"/);
+  assert.match(popupSource, /type: "monitor-get-snapshot"/);
+  assert.match(popupSource, /chrome\.tabs\.query\(\{ active: true, currentWindow: true \}\)/);
+  assert.match(popupSource, /local\.scriptVersion !== installedVersion/);
+  assert.match(popupSource, /local\.localState !== local\.iconState/);
+  assert.doesNotMatch(popupSource, /navigator\.clipboard|clipboard\.writeText|innerHTML\s*=/);
+});
+
+test("manual Stop click bypasses temporary Working signal grace", () => {
+  const code = functionSource(contentSource, "evaluate");
+  assert.match(code, /Date\.now\(\) >= manualStopUntil/);
+  assert.match(contentSource, /manualStopUntil = Date\.now\(\) \+ 5000;\s*lastWorkingEvidenceAt = 0/);
 });

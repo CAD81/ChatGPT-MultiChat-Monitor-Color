@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ChatGPT MultiChat Monitor</title>
+<title>ChatGPT MultiChat Monitor Color</title>
 <style>
 :root{color-scheme:dark;--bg:#0d1117;--card:#151b23;--line:#2b3442;--text:#f2f5f8;--muted:#98a4b5;--accent:#63e6d7;--accent2:#56b9ff;--control:#111821;--control-hover:#222c39;--control-border:#354052;--switch:#343e4e;--switch-on:#287f77;--soft-line:#242d39;--strong-muted:#dbe3ec;--ui-font:system-ui,-apple-system,"Segoe UI",sans-serif}
 :root[data-theme="light"]{color-scheme:light;--bg:#f3f6fa;--card:#ffffff;--line:#d7dee8;--text:#1d2836;--muted:#68778a;--accent:#168c82;--accent2:#5a9fd8;--control:#f8fafc;--control-hover:#eef3f8;--control-border:#ccd5df;--switch:#cbd4df;--switch-on:#45a99f;--soft-line:#dce3eb;--strong-muted:#334154;--ui-font:system-ui,-apple-system,"Segoe UI",sans-serif}
@@ -66,10 +66,15 @@ kbd{padding:1px 4px;border:1px solid #3c4758;border-bottom-width:2px;border-radi
 :root[data-theme="neon"] .card,:root[data-theme="neon"] .fold{box-shadow:0 0 18px rgba(0,245,212,.05)}
 :root[data-theme="minimal"] .card,:root[data-theme="minimal"] .fold,:root[data-theme="minimal"] .notice{border-radius:8px;box-shadow:none}
 :root[data-theme="minimal"] .support{box-shadow:none;color:#fff}
+.tab-diagnostics{padding:10px 12px;display:grid;gap:4px;font-size:11px;white-space:pre-wrap;line-height:1.5;color:var(--strong-muted)}
+.tab-diagnostics small{color:var(--muted)}
+.tab-diagnostics-row{display:flex;justify-content:space-between;gap:9px}
+.tab-diagnostics-row span:first-child{color:var(--muted)}
+#refreshTabDiagnostics{min-height:30px;white-space:nowrap}
 </style>
 </head>
 <body>
-<h1>MultiChat Monitor</h1>
+<h1>MultiChat Monitor Color</h1>
 <div class="sub">Lightweight monitoring for your open ChatGPT tabs.</div>
 
 <div class="notice update" id="updateNotice" hidden>
@@ -88,6 +93,14 @@ kbd{padding:1px 4px;border:1px solid #3c4758;border-bottom-width:2px;border-radi
     <a class="notice-link" id="whatsNewLink" href="#" target="_blank" rel="noreferrer">What's new</a>
     <button id="dismissWhatsNew" type="button">Got it</button>
   </div>
+</div>
+
+<div class="card">
+  <div class="row">
+    <div><div class="label">Tab-Status prüfen</div><div class="hint">Aktiver ChatGPT-Tab: Erkennung, Monitor und Symbol</div></div>
+    <button id="refreshTabDiagnostics" type="button">Prüfen</button>
+  </div>
+  <div class="tab-diagnostics" id="tabDiagnostics" aria-live="polite">Lade Status …</div>
 </div>
 
 <div class="card">
