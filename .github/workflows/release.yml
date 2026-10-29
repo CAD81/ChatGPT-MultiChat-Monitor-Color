@@ -33,6 +33,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          changed="$(git diff --name-only HEAD^ HEAD)"
+          if [[ "$changed" != "release/request.json" ]]; then
+            echo "::error::Release request must be a standalone commit."
+            exit 1
+          fi
           tag="$(python3 - <<'PY'
           import json
           import re
@@ -40,6 +45,8 @@ jobs:
           from pathlib import Path
 
           request = json.loads(Path("release/request.json").read_text(encoding="utf-8"))
+          if request.get("ready") is not True:
+              raise SystemExit("Release request is not explicitly authorized (ready: true required)")
           manifest = json.loads(Path("manifest.json").read_text(encoding="utf-8"))
           version = request.get("version")
           if not isinstance(version, str) or not re.fullmatch(r"\d+\.\d+\.\d+", version):
@@ -97,6 +104,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          current_main="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')"
+          if [[ "$current_main" != "$GITHUB_SHA" ]]; then
+            echo "::error::Main changed during packaging; refusing stale release."
+            exit 1
+          fi
           version="$(node -p "JSON.parse(require('node:fs').readFileSync('manifest.json','utf8')).version")"
           tag="v$version"
           filename="ChatGPT-MultiChat-Monitor-Color-v$version.zip"

@@ -1,0 +1,110 @@
+name: Publish release package (explicit request only)
+
+# No CI tests, PR triggers or ordinary push triggers.
+# ChatGPT/Codex requests a release by committing release/request.json to main.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'release/request.json'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: versioned-release-publisher
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out the exact release-request commit
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+
+      - name: Validate explicit request, current main and immutable tag
+        id: preflight
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="$(python3 - <<'PY'
+          import json
+          import re
+          import subprocess
+          from pathlib import Path
+
+          request = json.loads(Path("release/request.json").read_text(encoding="utf-8"))
+          manifest = json.loads(Path("manifest.json").read_text(encoding="utf-8"))
+          version = request.get("version")
+          if not isinstance(version, str) or not re.fullmatch(r"\d+\.\d+\.\d+", version):
+              raise SystemExit("Invalid requested release version")
+          if version != manifest.get("version"):
+              raise SystemExit("Requested version does not match manifest.json")
+          source_sha = request.get("source_sha")
+          expected_parent = subprocess.check_output(
+              ["git", "rev-parse", "HEAD^"], text=True
+          ).strip()
+          if source_sha != expected_parent:
+              raise SystemExit("Release request source_sha does not match prior main commit")
+          request_id = request.get("request_id")
+          if not isinstance(request_id, str) or not re.fullmatch(
+              r"[A-Za-z0-9][A-Za-z0-9._-]{1,127}", request_id
+          ):
+              raise SystemExit("Invalid or missing request_id")
+          print("v" + version)
+          PY
+          )"
+
+          current_main="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')"
+          if [[ "$current_main" != "$GITHUB_SHA" ]]; then
+            echo "Release request was superseded by newer main; skipping."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $tag already exists; keeping it unchanged."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" >/dev/null 2>&1; then
+            echo "::error::Tag $tag exists without a release; refusing to overwrite."
+            exit 1
+          fi
+          echo "publish=true" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Node.js for the packaging script
+        if: steps.preflight.outputs.publish == 'true'
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          package-manager-cache: false
+
+      - name: Package and verify installable ZIP and CSS assets
+        if: steps.preflight.outputs.publish == 'true'
+        run: bash scripts/build-release.sh
+
+      - name: Publish immutable release and checksums
+        if: steps.preflight.outputs.publish == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version="$(node -p "JSON.parse(require('node:fs').readFileSync('manifest.json','utf8')).version")"
+          tag="v$version"
+          filename="ChatGPT-MultiChat-Monitor-Color-v$version.zip"
+          cssfilename="ChatGPT-MultiChat-Monitor-Color-v$version-vivaldi.css"
+          gh release create "$tag" \
+            "dist/$filename" "dist/$filename.sha256" \
+            "dist/$cssfilename" "dist/$cssfilename.sha256" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "ChatGPT MultiChat Monitor Color v$version" \
+            --notes "Extension: download the versioned ZIP from Assets, extract it, and load the directory containing manifest.json. To COLOR VIVALDI TAB BACKGROUNDS, separately download the versioned -vivaldi.css asset, enable CSS modifications in vivaldi://experiments, choose its folder under Settings > Appearance > Custom UI Modifications, and restart Vivaldi. This relies on Vivaldi exposing favicon source URLs in its tab DOM and must be tested in Vivaldi; the extension alone cannot recolor tab backgrounds. Do not reload ChatGPT tabs containing unsaved work."

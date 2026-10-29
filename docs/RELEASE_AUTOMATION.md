@@ -6,7 +6,7 @@ This repository uses GitHub Actions **only** to publish finished, versioned exte
 
 1. ChatGPT/Codex synchronizes and checks the latest `main` commit and performs the required tests outside GitHub Actions.
 2. Update `manifest.json` to a **new** version (if needed); commit changes to `main`.
-3. Read the resulting, current `main` commit SHA. Update `release/request.json` with `version` matching `manifest.json`, `source_sha` equal to the immediately preceding `main` commit, and a fresh `request_id`. Commit this request **alone** to `main`.
+3. Read the resulting, current `main` commit SHA. Update `release/request.json` with `version` matching `manifest.json`, `source_sha` equal to the immediately preceding `main` commit, a fresh `request_id`, and `ready: true` after the user has explicitly authorized this specific release. The release-request commit must change **only** `release/request.json`; all ordinary commits remain action-free. Commit this request **alone** to `main`.
 4. Only the change to `release/request.json` starts `.github/workflows/release.yml`. The workflow checks the request, skips superseded or already published versions, builds the versioned ZIP and Vivaldi CSS, creates their SHA-256 files, and publishes a GitHub Release.
 5. Verify the release exists and exposes all four assets. Do not describe an untested version as fully validated.
 
