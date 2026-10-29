@@ -708,7 +708,7 @@
     if (working) lastWorkingEvidenceAt = Date.now();
 
     if (!working && localState.state === "working" &&
-        !manualStopUntil && lastWorkingEvidenceAt > 0 &&
+        Date.now() >= manualStopUntil && lastWorkingEvidenceAt > 0 &&
         Date.now() - lastWorkingEvidenceAt < WORKING_SIGNAL_GRACE_MS) {
       // Do not mark an active tool call as Done if the Stop control briefly
       // disappears while the composer is being rebuilt.

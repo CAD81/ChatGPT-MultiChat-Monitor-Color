@@ -1143,3 +1143,22 @@ test("diagnostics only expose statuses and technical signals, not conversation c
   assert.doesNotMatch(f, /innerText|textContent|document\.title|location\.href|localStorage/);
   assert.match(contentSource, /message\?\.type === "monitor-get-status-diagnostics"/);
 });
+
+
+test("popup status diagnostics only request active-tab technical status and registry state", () => {
+  const html = fs.readFileSync(path.join(root, "popup.html"), "utf8");
+  assert.match(html, /id="tabDiagnostics"/);
+  assert.match(html, /id="refreshTabDiagnostics"/);
+  assert.match(popupSource, /type: "monitor-get-status-diagnostics"/);
+  assert.match(popupSource, /type: "monitor-get-snapshot"/);
+  assert.match(popupSource, /chrome\.tabs\.query\(\{ active: true, currentWindow: true \}\)/);
+  assert.match(popupSource, /local\.scriptVersion !== installedVersion/);
+  assert.match(popupSource, /local\.localState !== local\.iconState/);
+  assert.doesNotMatch(popupSource, /navigator\.clipboard|clipboard\.writeText|innerHTML\s*=/);
+});
+
+test("manual Stop click bypasses temporary Working signal grace", () => {
+  const code = functionSource(contentSource, "evaluate");
+  assert.match(code, /Date\.now\(\) >= manualStopUntil/);
+  assert.match(contentSource, /manualStopUntil = Date\.now\(\) \+ 5000;\s*lastWorkingEvidenceAt = 0/);
+});

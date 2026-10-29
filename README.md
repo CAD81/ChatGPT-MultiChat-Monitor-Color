@@ -81,6 +81,19 @@ its SHA-256 checksum.
 
 ### Troubleshooting: gray dash while ChatGPT is answering
 
+From **v0.4.6**, the extension popup includes **Tab-Status prüfen**. On a
+ChatGPT tab, click the extension icon and **Prüfen**. This compares the
+local detection state, the background monitor's stored state, the actual
+tab favicon, and whether the page exposes a Stop button or busy indicator.
+
+If a tab is visibly generating but its status is idle, use the diagnostic
+rather than treating the gray icon as proof ChatGPT has stopped. The
+monitor never reads, uploads or logs conversation text for diagnostics.
+Save unsubmitted work before manually refreshing a tab with outdated
+extension scripts. Vivaldi CSS can only color what the extension's
+status icon reports; it cannot independently determine whether ChatGPT
+is working.
+
 The gray circle with a dash means **Idle**. Since version 0.4.3 the detector also
 recognizes the icon-only Stop control found in newer ChatGPT composer variants,
 as well as common German Stop labels. When a detected response finishes without
