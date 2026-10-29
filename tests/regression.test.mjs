@@ -1274,7 +1274,7 @@ test("long diagnostic sanitization stores only known signal fields; no page cont
   assert.match(source, /longDiagState\(raw\.localState\)/);
   assert.match(source, /longDiagState\(tab\?\.state\)/);
   assert.match(source, /longDiagCount\(counts\.staleProneMarkers\)/);
-  assert.match(source, /kind === "user-finished"/);
+  assert.match(source, /user-finished/);
   assert.match(backgroundSource, /function withLongDiagLock/);
   assert.match(backgroundSource, /recording\.events\.splice\(0, recording\.events\.length - LONG_DIAG_MAX_EVENTS\)/);
 });
@@ -1453,4 +1453,104 @@ test("diagnostics distinguish potentially false-positive Stop buttons outside th
   },51,{tabAliases:{}},"heartbeat");
   assert.equal(sample.counters.stopInsideComposer,1);
   assert.equal(sample.counters.stopOutsideComposer,1);
+});
+
+
+test("background browser favicon probe returns only sanitized icon state", async () => {
+  const tab={id:4932,windowId:1,url:"https://chatgpt.com/c/top-secret",
+    favIconUrl:"chrome-extension://private-extension/assets/tab-status/working.svg?gptmm=123"};
+  const {events} = await loadBackground({tabs:[tab]});
+  const response = await dispatchBackgroundMessage(events,{
+    type:"monitor-favicon-health"
+  },{tab});
+  assert.equal(response.ok,true);
+  assert.equal(response.browserState,"working");
+  assert.equal(response.faviconKind,"status-svg");
+  assert.equal(JSON.stringify(response).includes("private-extension"),false);
+  assert.equal(JSON.stringify(response).includes("top-secret"),false);
+  const rejected = await dispatchBackgroundMessage(events,{
+    type:"monitor-favicon-health"
+  },{tab:{id:4932,url:"https://example.com/"}});
+  assert.equal(rejected.ok,false);
+});
+
+test("favicon monitor retries once mismatched state persists, and confirms successful repair", async () => {
+  let functionCode = functionSource(contentSource,"maybeCheckFaviconHealth");
+  const context = {
+    clock: {now:100000},
+    browser: {state:"working",calls:0},
+    desired: "finished",
+    attempts:[],emitted:[],
+    Date:{now(){return context.clock.now;}},
+    sendMessage(message) {
+      assert.equal(message.type,"monitor-favicon-health");
+      context.browser.calls++;
+      return Promise.resolve({ok:true,browserState:context.browser.state});
+    },
+    tabColorState() {return context.desired;},
+    sendLongDiagnosticSample(kind) {context.emitted.push(kind);},
+    setTimeout(callback,ms) {assert.equal(ms,2400);return 1;},
+    __chatgptMultiChatColorStatus: {
+      apply(state,option) {
+        context.attempts.push({state,force:option.force});
+        return true;
+      }
+    }
+  };
+  context.globalThis=context;
+  const declarations = `
+    const FAVICON_HEALTH_DELAY_MS = 2400;
+    const FAVICON_HEALTH_RETRY_MS = 6000;
+    const FAVICON_HEALTH_CONFIRMED_MS = 60000;
+    const FAVICON_HEALTH_MAX_REPAIRS = 3;
+    let faviconHealthDesired = "";
+    let faviconHealthChangedAt = 0;
+    let faviconHealthLastCheckAt = 0;
+    let faviconHealthLastRepairAt = 0;
+    let faviconHealthInFlight = false;
+    let faviconHealthConfirmed = false;
+    let faviconHealthMismatchCount = 0;
+    let faviconHealthChecks = 0;
+    let faviconHealthRepairs = 0;
+    let faviconHealthBrowserState = "unknown";
+  `+functionCode+";globalThis.tick=maybeCheckFaviconHealth;"+
+    "globalThis.health=function(){return {confirmed:faviconHealthConfirmed,repairs:faviconHealthRepairs,mismatches:faviconHealthMismatchCount};}";
+  vm.createContext(context);
+  new vm.Script(declarations).runInContext(context);
+  async function tick(time,browser) {
+    context.clock.now=time;
+    context.browser.state=browser;
+    context.tick();
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+  }
+  await tick(100000,"working");
+  assert.equal(context.browser.calls,0);
+  await tick(103000,"working");
+  assert.equal(context.browser.calls,1);
+  assert.equal(context.attempts.length,0);
+  await tick(109100,"working");
+  assert.equal(context.attempts.length,1);
+  assert.deepEqual(context.attempts.map(x=>x.state),["finished"]);
+  assert.equal(context.attempts[0].force,true);
+  await tick(115200,"finished");
+  assert.equal(context.health().confirmed,true);
+  assert.equal(context.health().repairs,1);
+  assert.equal(context.health().mismatches,0);
+  await tick(120000,"finished");
+  assert.equal(context.attempts.length,1,"confirmed state must not trigger URL churn");
+  assert.deepEqual(context.emitted,["favicon-repair"]);
+});
+
+test("favicon recovery is bounded to three attempts even if browser never updates", async () => {
+  const source = functionSource(contentSource,"maybeCheckFaviconHealth");
+  assert.match(source,/FAVICON_HEALTH_MAX_REPAIRS/);
+  assert.match(source,/faviconHealthMismatchCount < 2/);
+  assert.match(source,/faviconHealthInFlight/);
+  assert.match(source,/faviconHealthConfirmed/);
+  assert.match(source,/desired !== tabColorState\(\)/);
+  assert.match(source,/apply\(desired, \{ force: true \}\)/);
+  assert.match(backgroundSource,/message\?\.type === "monitor-favicon-health"/);
+  assert.match(backgroundSource,/longDiagBrowserState\(tab\.favIconUrl\)/);
 });

@@ -64,7 +64,8 @@ test("all supported statuses use different packaged icon URLs without duplicatio
     const icon = document.getElementById("chatgpt-multichat-monitor-color-favicon");
     assert.ok(icon);
     const expected = "chrome-extension://test-id/assets/tab-status/" + state + ".svg";
-    assert.equal(icon.getAttribute("href"), expected, state);
+    assert.ok(icon.getAttribute("href").startsWith(expected + "?gptmm="), state);
+    assert.match(icon.getAttribute("href"), /\?gptmm=[a-z0-9]+-[a-z0-9]+$/);
     urls.add(icon.getAttribute("href"));
     assert.equal(nodes.length, 1, "exactly one extension icon link");
   }
@@ -83,7 +84,7 @@ test("reapplying the same state is idempotent", () => {
 test("unknown status safely falls back to idle", () => {
   const { api, nodes } = environment();
   assert.equal(api.apply("__not_a_real_state__"), true);
-  assert.match(nodes[0].getAttribute("href"), /\/idle\.svg$/);
+  assert.match(nodes[0].getAttribute("href"), /\/idle\.svg\?gptmm=/);
 });
 
 test("existing ChatGPT icon remains intact and late site icons do not override the status icon", () => {
@@ -102,7 +103,7 @@ test("existing ChatGPT icon remains intact and late site icons do not override t
   api.apply("error");
   const newStatusIcon = nodes[nodes.length - 1];
   assert.notEqual(newStatusIcon, originalStatusIcon, "a changed state gets a new favicon link");
-  assert.match(newStatusIcon.getAttribute("href"), /\/error\.svg$/);
+  assert.match(newStatusIcon.getAttribute("href"), /\/error\.svg\?gptmm=/);
   assert.equal(nodes.length, 3, "original site icons are kept, old status icon removed");
 });
 
@@ -114,7 +115,7 @@ test("missing extension runtime does not throw or modify the site", () => {
 
 test("manifest injects status module before monitor and exposes only status icons on ChatGPT", () => {
   assert.deepEqual(manifest.content_scripts[0].js, ["tab-status.js", "content.js"]);
-  assert.equal(manifest.version, "0.4.9");
+  assert.equal(manifest.version, "0.4.10");
   const assets = manifest.web_accessible_resources;
   assert.equal(assets.length, 1);
   assert.deepEqual(assets[0].resources, ["assets/tab-status/*.svg"]);
@@ -158,7 +159,7 @@ test("status change replaces favicon element once, then remains stable", () => {
   assert.notEqual(workingIcon, idleIcon, "Chromium gets a fresh icon element on change");
   assert.equal(nodes.length, 1, "no duplicate favicon links remain");
   assert.equal(idleIcon.parentNode, null);
-  assert.match(workingIcon.getAttribute("href"), /\/working\.svg$/);
+  assert.match(workingIcon.getAttribute("href"), /\/working\.svg\?gptmm=/);
   api.apply("working");
   assert.equal(nodes.length, 1);
   assert.equal(document.getElementById("chatgpt-multichat-monitor-color-favicon"), workingIcon);
@@ -233,4 +234,27 @@ test("packager includes Vivaldi CSS and emits separately versioned CSS asset", (
   assert.match(packager, /-vivaldi\.css/);
   assert.match(release, /cssfilename=/);
   assert.match(release, /dist\/\$cssfilename/);
+});
+
+
+test("fresh cache-busting URL on transitions and explicit repair without churn", () => {
+  const {api, document, nodes} = environment();
+  assert.equal(api.apply("working"),true);
+  const first = document.getElementById("chatgpt-multichat-monitor-color-favicon");
+  const firstUrl = first.getAttribute("href");
+  assert.match(firstUrl, /working\.svg\?gptmm=/);
+  assert.equal(api.apply("working"),true);
+  assert.equal(document.getElementById("chatgpt-multichat-monitor-color-favicon"),first);
+  assert.equal(api.diagnostics().forcedUpdates,0);
+  assert.equal(api.apply("working",{force:true}),true);
+  const second = document.getElementById("chatgpt-multichat-monitor-color-favicon");
+  assert.notEqual(second,first);
+  assert.notEqual(second.getAttribute("href"),firstUrl);
+  assert.equal(nodes.length,1);
+  assert.equal(api.diagnostics().forcedUpdates,1);
+  assert.equal(api.apply("finished"),true);
+  const third = document.getElementById("chatgpt-multichat-monitor-color-favicon");
+  assert.match(third.getAttribute("href"), /finished\.svg\?gptmm=/);
+  assert.notEqual(third.getAttribute("href"),second.getAttribute("href"));
+  assert.equal(api.diagnostics().updateRevision,3);
 });

@@ -134,7 +134,10 @@ function longDiagFindings(events) {
     .filter(event => event.kind === "user-finished").slice(-20);
   return marks.map(event => {
     let suspected = "undetermined";
-    if (event.local === "working") {
+    if (event.local === "finished" && event.faviconHealth?.limitReached &&
+        event.browserIcon !== "finished") {
+      suspected = "browser-favicon-stale-after-bounded-repair";
+    } else if (event.local === "working") {
       if (event.stop) suspected = event.counters?.stopOutsideComposer > 0
         ? "unscoped-stop-button-still-detected" : "stop-control-still-detected";
       else if (event.busy) suspected = "busy-indicator-still-detected";
@@ -158,7 +161,7 @@ function longDiagAutomaticChecks(events) {
   const streaks = new Map();
   const alerts = [];
   for (const e of (Array.isArray(events) ? events : [])) {
-    if (e.kind === "user-finished") continue;
+    if (e.kind === "user-finished" || e.kind === "favicon-repair") continue;
     let issue = "";
     if (e.local === "working" && !e.stop && !e.busy &&
         !e.restoreGrace && !e.confirmationPending) {
@@ -226,11 +229,13 @@ function longDiagSanitize(sample, tabId, record, kind) {
   const tab = chats.get(tabId);
   const stop = longDiagBool(raw.stopButtonVisible);
   const busy = longDiagBool(raw.progressIndicatorVisible);
+  const faviconHealth = raw.faviconHealth && typeof raw.faviconHealth === "object"
+    ? raw.faviconHealth : {};
   return {
     at: new Date().toISOString(),
     tab: record.tabAliases[id],
-    kind: kind === "transition" ? "transition" :
-      kind === "user-finished" ? "user-finished" : "heartbeat",
+    kind: ["transition", "user-finished", "favicon-repair"].includes(kind)
+      ? kind : "heartbeat",
     local: longDiagState(raw.localState),
     monitor: longDiagState(tab?.state),
     icon: longDiagState(raw.iconState),
@@ -241,6 +246,14 @@ function longDiagSanitize(sample, tabId, record, kind) {
     favicon: longDiagFaviconKind(raw.browserFaviconUrl),
     browserIcon: longDiagBrowserState(raw.browserFaviconUrl),
     iconLast: longDiagBool(raw.faviconLinkLast),
+    faviconHealth: {
+      browserState: longDiagState(faviconHealth.browserState),
+      checks: longDiagCount(faviconHealth.checked, 100000),
+      mismatches: longDiagCount(faviconHealth.mismatches, 100000),
+      repairs: longDiagCount(faviconHealth.repairs, 10),
+      confirmed: longDiagBool(faviconHealth.confirmed),
+      limitReached: longDiagBool(faviconHealth.limitReached)
+    },
     hidden: longDiagBool(raw.documentHidden),
     confirmationPending: longDiagBool(raw.finishConfirmationPending),
     restoreGrace: longDiagBool(raw.finishRestoreGracePending),
@@ -1833,6 +1846,28 @@ async function injectIntoOpenTabs() {
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message?.type === "monitor-favicon-health") {
+    const tabId = sender.tab?.id;
+    if (!Number.isInteger(tabId) ||
+        !String(sender.tab?.url || "").startsWith("https://chatgpt.com/")) {
+      sendResponse({ok:false,browserState:"unknown"});
+      return true;
+    }
+    // Only a sanitized status is shared; no raw browser favicon URL, title,
+    // or conversation identifiers ever enter the page content script.
+    chrome.tabs.get(tabId).then(tab => {
+      if (!String(tab?.url || "").startsWith("https://chatgpt.com/")) {
+        sendResponse({ok:false,browserState:"unknown"});
+        return;
+      }
+      sendResponse({
+        ok:true,
+        browserState:longDiagBrowserState(tab.favIconUrl),
+        faviconKind:longDiagFaviconKind(tab.favIconUrl)
+      });
+    }).catch(() => sendResponse({ok:false,browserState:"unknown"}));
+    return true;
+  }
   if (message?.type === "monitor-diagnostic-current") {
     longDiagReport(false)
       .then(result => sendResponse({ active: result.report.active,

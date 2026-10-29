@@ -123,6 +123,28 @@ tab stays visibly green when focused; it is no longer automatically reset
 to Idle. This still requires a live browser test to confirm your specific
 ChatGPT UI variant.
 
+## Favicon reliability update (v0.4.10)
+
+The 60-minute v0.4.9 real-world diagnostic (12 tabs, 1,467 reports) found
+**110 cases** where the content script and monitor were correctly Finished
+but the `chrome.tabs.favIconUrl` browser API still reported the older
+Working favicon; 37 cases had the opposite startup lag. Thus setting the
+favicon DOM link alone is insufficient.
+
+v0.4.10 adds a unique cache-busting query string to favicon URLs on genuine
+state changes; the resource path before the query string remains the
+same for Vivaldi CSS matching. The content script checks the browser's
+actual `tabs.get(tabId).favIconUrl` (without exposing the raw URL) a few
+seconds later, then applies **up to three forced favicon refreshes** only
+after repeated mismatches. Successful states are checked only once a minute.
+This is not a continuous repaint. Vivaldi may still cache/render independently
+of its API, so visual confirmation on the real Vivaldi installation remains
+required. The diagnostics now expose the browser-reported status and
+refresh attempts; long recordings also log `favicon-repair` events.
+
+**Do not edit or clear the browser's favicon cache manually.** After replacing
+the extension, reload open ChatGPT tabs only after securing any unsent drafts.
+
 ### Troubleshooting: gray dash while ChatGPT is answering
 
 **From v0.4.7: 10-second live diagnosis.** Start a long ChatGPT answer,

@@ -58,6 +58,20 @@
   let diagnosticMainMutationCount = 0;
   let diagnosticLastMainMutationAt = 0;
   const LONG_DIAGNOSTIC_SAMPLE_MS = 10000;
+  const FAVICON_HEALTH_DELAY_MS = 2400;
+  const FAVICON_HEALTH_RETRY_MS = 6000;
+  const FAVICON_HEALTH_CONFIRMED_MS = 60000;
+  const FAVICON_HEALTH_MAX_REPAIRS = 3;
+  let faviconHealthDesired = "";
+  let faviconHealthChangedAt = 0;
+  let faviconHealthLastCheckAt = 0;
+  let faviconHealthLastRepairAt = 0;
+  let faviconHealthInFlight = false;
+  let faviconHealthConfirmed = false;
+  let faviconHealthMismatchCount = 0;
+  let faviconHealthChecks = 0;
+  let faviconHealthRepairs = 0;
+  let faviconHealthBrowserState = "unknown";
   let activeRunStartedAt = null;
   let activeRunRestoreGraceUntil = 0;
   let bootstrapped = false;
@@ -624,8 +638,74 @@
     return localState.state === "idle" && tabPending ? "pending" : localState.state;
   }
 
+  function faviconHealthSnapshot() {
+    return {
+      desired: faviconHealthDesired,
+      browserState: faviconHealthBrowserState,
+      checked: faviconHealthChecks,
+      mismatches: faviconHealthMismatchCount,
+      repairs: faviconHealthRepairs,
+      confirmed: faviconHealthConfirmed,
+      limitReached: faviconHealthRepairs >= FAVICON_HEALTH_MAX_REPAIRS &&
+        !faviconHealthConfirmed,
+      lastCheckAgeMs: faviconHealthLastCheckAt ?
+        Math.max(0, Date.now() - faviconHealthLastCheckAt) : 0,
+      lastRepairAgeMs: faviconHealthLastRepairAt ?
+        Math.max(0, Date.now() - faviconHealthLastRepairAt) : 0
+    };
+  }
+
+  function maybeCheckFaviconHealth() {
+    const desired = tabColorState();
+    if (desired !== faviconHealthDesired) {
+      faviconHealthDesired = desired;
+      faviconHealthChangedAt = Date.now();
+      faviconHealthLastCheckAt = 0;
+      faviconHealthBrowserState = "unknown";
+      faviconHealthConfirmed = false;
+      faviconHealthMismatchCount = 0;
+      faviconHealthRepairs = 0;
+      // Allow the browser to process the new favicon before reading tabs.get.
+      setTimeout(() => maybeCheckFaviconHealth(), FAVICON_HEALTH_DELAY_MS);
+    }
+    const now = Date.now();
+    if (faviconHealthInFlight || now - faviconHealthChangedAt < FAVICON_HEALTH_DELAY_MS) return;
+    const interval = faviconHealthConfirmed
+      ? FAVICON_HEALTH_CONFIRMED_MS : FAVICON_HEALTH_RETRY_MS;
+    if (faviconHealthLastCheckAt && now - faviconHealthLastCheckAt < interval) return;
+    faviconHealthLastCheckAt = now;
+    faviconHealthInFlight = true;
+    sendMessage({ type: "monitor-favicon-health" }).then((result) => {
+      if (!result?.ok || desired !== tabColorState()) return;
+      const browser = result.browserState;
+      faviconHealthChecks += 1;
+      faviconHealthBrowserState = browser;
+      if (browser === desired) {
+        faviconHealthConfirmed = true;
+        faviconHealthMismatchCount = 0;
+        return;
+      }
+      if (browser === "unknown" && desired === "idle") return;
+      faviconHealthConfirmed = false;
+      faviconHealthMismatchCount += 1;
+      // Confirm the mismatch twice to avoid racing normal async favicon loads.
+      // Fresh cache-busted URLs are attempted at most three times per status.
+      if (faviconHealthMismatchCount < 2 ||
+          faviconHealthRepairs >= FAVICON_HEALTH_MAX_REPAIRS) return;
+      if (Date.now() - faviconHealthLastRepairAt < FAVICON_HEALTH_RETRY_MS) return;
+      if (globalThis.__chatgptMultiChatColorStatus?.apply(desired, { force: true })) {
+        faviconHealthRepairs += 1;
+        faviconHealthLastRepairAt = Date.now();
+        sendLongDiagnosticSample("favicon-repair");
+      }
+    }).catch(() => {}).finally(() => {
+      faviconHealthInFlight = false;
+    });
+  }
+
   function paintTabStatus() {
     globalThis.__chatgptMultiChatColorStatus?.apply(tabColorState());
+    maybeCheckFaviconHealth();
   }
 
   function sendCurrentState() {
@@ -2661,8 +2741,10 @@
       staleProneMarkers: 0
     };
     const candidates = document.querySelectorAll(
-      'form button, button[data-testid*="stop"], button[data-test-id*="stop"], ' +
-      'button[aria-label], [role="button"][aria-label], button[title], button#composer-submit-button'
+      'form button, button[data-testid*="stop"], [role="button"][data-testid*="stop"], ' +
+      'button[data-test-id*="stop"], [role="button"][data-test-id*="stop"], ' +
+      'button[aria-label], [role="button"][aria-label], button[title], ' +
+      'form[data-chatgpt-composer] button[type="button"], button#composer-submit-button'
     );
     let examined = 0;
     for (const button of candidates) {
@@ -2720,6 +2802,7 @@
       localState: localState.state,
       visualState: tabColorState(),
       iconState: match ? match[1] : "missing",
+      faviconHealth: faviconHealthSnapshot(),
       faviconLinkLast: !!icon && iconLinks[iconLinks.length - 1] === icon,
       documentHidden: document.hidden === true,
       evaluationCount: diagnosticEvaluationCount,
@@ -2764,12 +2847,13 @@
     try {
       chrome.runtime.sendMessage({
         type: "monitor-diagnostic-sample",
-        kind: kind === "transition" ? "transition" : "heartbeat",
+        kind: ["transition", "favicon-repair"].includes(kind) ? kind : "heartbeat",
         sample: {
           scriptVersion: diagnostic.scriptVersion,
           localState: diagnostic.localState,
           visualState: diagnostic.visualState,
           iconState: diagnostic.iconState,
+          faviconHealth: diagnostic.faviconHealth,
           stopButtonVisible: diagnostic.stopButtonVisible,
           progressIndicatorVisible: diagnostic.progressIndicatorVisible,
           faviconLinkLast: diagnostic.faviconLinkLast,
