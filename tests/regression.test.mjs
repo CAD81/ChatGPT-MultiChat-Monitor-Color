@@ -998,6 +998,8 @@ test("new composer Stop icon yields Working then Done without relying on transla
     activeRunRestoreGraceUntil: 0,
     activeRunStartedAt: null,
     lastWorkPhaseSeenAt: 0,
+    diagnosticEvaluationCount: 0,
+    diagnosticLastEvaluatedAt: 0,
     finishTimer: null,
     manualStopUntil: 0,
     FINISH_CONFIRM_MS: 1400,
@@ -1121,6 +1123,8 @@ test("a brief missing Stop signal cannot immediately mark a running chat Done", 
     WORKING_SIGNAL_GRACE_MS: 3500,
     FINISH_CONFIRM_MS: 1400,
     lastWorkingEvidenceAt: 19500,
+    diagnosticEvaluationCount: 0,
+    diagnosticLastEvaluatedAt: 0,
     manualStopUntil: 0,
     activeRunRestoreGraceUntil: 0,
     finishTimer: null,
@@ -1150,20 +1154,62 @@ test("diagnostics only expose statuses and technical signals, not conversation c
 });
 
 
-test("popup status diagnostics only request active-tab technical status and registry state", () => {
+test("popup offers bounded live measurement and explicit technical-report copy", () => {
   const html = fs.readFileSync(path.join(root, "popup.html"), "utf8");
   assert.match(html, /id="tabDiagnostics"/);
   assert.match(html, /id="refreshTabDiagnostics"/);
+  assert.match(html, /id="captureTabDiagnostics"/);
+  assert.match(html, /id="copyTabDiagnostics"/);
+  assert.match(html, /status-diagnostics\.js/);
   assert.match(popupSource, /type: "monitor-get-status-diagnostics"/);
   assert.match(popupSource, /type: "monitor-get-snapshot"/);
   assert.match(popupSource, /chrome\.tabs\.query\(\{ active: true, currentWindow: true \}\)/);
-  assert.match(popupSource, /local\.scriptVersion !== installedVersion/);
-  assert.match(popupSource, /local\.localState !== local\.iconState/);
-  assert.doesNotMatch(popupSource, /navigator\.clipboard|clipboard\.writeText|innerHTML\s*=/);
+  assert.match(popupSource, /i < 10/);
+  assert.match(popupSource, /lastDiagnosticReport/);
+  assert.match(popupSource, /navigator\.clipboard\.writeText\(json\)/);
+  assert.doesNotMatch(popupSource, /innerHTML\s*=/);
 });
 
 test("manual Stop click bypasses temporary Working signal grace", () => {
   const code = functionSource(contentSource, "evaluate");
   assert.match(code, /Date\.now\(\) >= manualStopUntil/);
   assert.match(contentSource, /manualStopUntil = Date\.now\(\) \+ 5000;\s*lastWorkingEvidenceAt = 0/);
+});
+
+
+test("tab signal inventory exposes only counts and does not collect DOM text", () => {
+  const inventory = contentFunction("diagnosticSignalInventory", {
+    document: {
+      querySelectorAll(selector) {
+        if (selector.startsWith("form button")) {
+          return [{
+            tagName: "BUTTON",
+            closest: () => ({}),
+            querySelectorAll: () => [{ tagName: "rect", getAttribute: (name) =>
+              ({ width: "10", height: "10" })[name] ?? null }]
+          }];
+        }
+        return [];
+      }
+    },
+    isVisible: () => true,
+    isStopButton: () => true
+  });
+  const report = inventory();
+  assert.equal(report.visibleComposerButtons, 1);
+  assert.equal(report.squareStopCandidates, 1);
+  assert.equal(report.recognizedStopButtons, 1);
+  assert.equal(report.visibleBusyIndicators, 0);
+  assert.deepEqual(Object.keys(report).sort(),
+    ["visibleComposerButtons", "squareStopCandidates", "recognizedStopButtons", "visibleBusyIndicators"].sort());
+});
+
+test("transitions and evaluation counters are bounded and no URLs/titles are in status report", () => {
+  assert.match(contentSource, /diagnosticTransitions\.length > 24/);
+  assert.match(contentSource, /diagnosticEvaluationCount \+= 1/);
+  const fn = functionSource(contentSource, "statusDiagnostics");
+  assert.match(fn, /faviconLinkLast:/);
+  assert.match(fn, /signalInventory:/);
+  assert.match(fn, /transitions:/);
+  assert.doesNotMatch(fn, /document\.title|location\.href|textContent|innerText|localStorage|outerHTML/);
 });

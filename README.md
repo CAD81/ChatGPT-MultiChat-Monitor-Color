@@ -81,6 +81,22 @@ its SHA-256 checksum.
 
 ### Troubleshooting: gray dash while ChatGPT is answering
 
+**From v0.4.7: 10-second live diagnosis.** Start a long ChatGPT answer,
+open the extension popup while the answer is still generating and click
+**10 Sekunden messen**. Keep the popup open during the 10 samples.
+Then click **Bericht kopieren** and paste the technical report into the
+development chat. The report contains only known status values, bounded
+counters and recent status transitions – **no conversation texts, tab URLs,
+chat titles or full browser favicon URLs**. The report is not uploaded
+automatically and is held in the popup only until you close it.
+
+The report distinguishes a missed Stop button, local status detection,
+background-monitor synchronization and favicon updating. Vivaldi's internal
+UI CSS **cannot be inspected by a standard browser extension**; if the
+local state and favicon are correctly Working but the tab stays gray, that
+must be diagnosed in Vivaldi's UI CSS/DOM rather than by changing the
+conversation-status detector.
+
 From **v0.4.6**, the extension popup includes **Tab-Status prüfen**. On a
 ChatGPT tab, click the extension icon and **Prüfen**. This compares the
 local detection state, the background monitor's stored state, the actual

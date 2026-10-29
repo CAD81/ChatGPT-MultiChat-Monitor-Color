@@ -4,7 +4,7 @@
 
   const FINISH_CONFIRM_MS = 1400;
   const WORKING_SIGNAL_GRACE_MS = 3500;
-  const CONTENT_SCRIPT_VERSION = "0.4.6";
+  const CONTENT_SCRIPT_VERSION = "0.4.7";
   const RECENT_TTL_MS = 180000;
   const ATTENTION_TTL_MS = 30 * 60 * 1000;
   const ERROR_TTL_MS = 10 * 60 * 1000;
@@ -50,6 +50,9 @@
   let lastErrorScanAt = 0;
   let lastWorkPhaseSeenAt = 0;
   let lastWorkingEvidenceAt = 0;
+  let diagnosticEvaluationCount = 0;
+  let diagnosticLastEvaluatedAt = 0;
+  const diagnosticTransitions = [];
   let activeRunStartedAt = null;
   let activeRunRestoreGraceUntil = 0;
   let bootstrapped = false;
@@ -627,6 +630,7 @@
   }
 
   function setState(state, values) {
+    const previousState = localState.state;
     const extra = values || {};
     const trackedKeys = ["startedAt", "finishedAt", "workPhase", "phaseStartedAt"];
     if (localState.state === state &&
@@ -651,6 +655,11 @@
       updatedAt: Date.now()
     };
 
+    if (previousState !== state) {
+      diagnosticTransitions.push({ at: Date.now(), from: previousState, to: state });
+      if (diagnosticTransitions.length > 24) diagnosticTransitions.shift();
+    }
+
     if (state === "working") {
       activeRunStartedAt = localState.startedAt || activeRunStartedAt;
     } else {
@@ -672,6 +681,8 @@
   }
 
   function evaluate(options) {
+    diagnosticEvaluationCount += 1;
+    diagnosticLastEvaluatedAt = Date.now();
     paintTabStatus();
     const opts = options || {};
     const allowFallback = opts.allowFallback === true;
@@ -2632,16 +2643,69 @@
     }
   }, true);
 
+  function diagnosticSignalInventory() {
+    const result = {
+      visibleComposerButtons: 0,
+      squareStopCandidates: 0,
+      recognizedStopButtons: 0,
+      visibleBusyIndicators: 0
+    };
+    const candidates = document.querySelectorAll(
+      'form button, button[data-testid*="stop"], button[data-test-id*="stop"]'
+    );
+    let examined = 0;
+    for (const button of candidates) {
+      if (++examined > 120) break;
+      if (!isVisible(button)) continue;
+      if (button.closest?.("form")) result.visibleComposerButtons += 1;
+      if (isStopButton(button)) result.recognizedStopButtons += 1;
+
+      const icons = button.querySelectorAll?.("svg rect, svg path[d]") || [];
+      let iconCount = 0;
+      for (const icon of icons) {
+        if (++iconCount > 8) break;
+        if (String(icon.tagName || "").toLowerCase() === "rect") {
+          const w = Number(icon.getAttribute?.("width"));
+          const h = Number(icon.getAttribute?.("height"));
+          if (w >= 5 && h >= 5 && Math.abs(w - h) <= 1) {
+            result.squareStopCandidates += 1;
+            break;
+          }
+        }
+      }
+    }
+    const busy = document.querySelectorAll(
+      'main [aria-busy="true"][data-testid], main [data-testid*="generating" i], main [data-testid*="streaming" i]'
+    );
+    for (const node of busy) {
+      if (isVisible(node)) result.visibleBusyIndicators += 1;
+    }
+    return result;
+  }
+
   function statusDiagnostics() {
     const icon = document.getElementById("chatgpt-multichat-monitor-color-favicon");
     const href = String(icon?.getAttribute("href") || "");
     const match = href.match(/\/assets\/tab-status\/([a-z]+)\.svg(?:$|\?)/);
+    const iconLinks = document.querySelectorAll('link[rel~="icon"]');
+    const now = Date.now();
     return {
       scriptVersion: CONTENT_SCRIPT_VERSION,
       initialized: bootstrapped,
       localState: localState.state,
       visualState: tabColorState(),
       iconState: match ? match[1] : "missing",
+      faviconLinkLast: !!icon && iconLinks[iconLinks.length - 1] === icon,
+      documentHidden: document.hidden === true,
+      evaluationCount: diagnosticEvaluationCount,
+      lastEvaluationAgeMs: diagnosticLastEvaluatedAt
+        ? Math.max(0, now - diagnosticLastEvaluatedAt) : -1,
+      signalInventory: diagnosticSignalInventory(),
+      transitions: diagnosticTransitions.slice(-15).map((entry) => ({
+        from: entry.from,
+        to: entry.to,
+        secondsAgo: Math.max(0, Math.round((now - entry.at) / 1000))
+      })),
       stopButtonVisible: directWorkingSignal(),
       progressIndicatorVisible: activeGenerationIndicator(),
       recentWorkingEvidence: !!(lastWorkingEvidenceAt > 0 &&

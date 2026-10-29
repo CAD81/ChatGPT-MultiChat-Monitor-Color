@@ -71,6 +71,11 @@ kbd{padding:1px 4px;border:1px solid #3c4758;border-bottom-width:2px;border-radi
 .tab-diagnostics-row{display:flex;justify-content:space-between;gap:9px}
 .tab-diagnostics-row span:first-child{color:var(--muted)}
 #refreshTabDiagnostics{min-height:30px;white-space:nowrap}
+.diagnostic-controls{display:flex;gap:8px;align-items:center;padding:4px 12px 8px;flex-wrap:wrap}
+.diagnostic-controls button{min-height:30px}
+.diagnostic-controls button:disabled{opacity:.55;cursor:default}
+.diagnostic-progress{padding:0 12px 10px}
+#diagnosticReportText{margin:0 12px 12px;width:calc(100% - 24px);box-sizing:border-box;max-height:175px;background:var(--control);color:var(--text);border:1px solid var(--control-border);border-radius:6px;padding:8px;font-size:11px}
 </style>
 </head>
 <body>
@@ -101,6 +106,12 @@ kbd{padding:1px 4px;border:1px solid #3c4758;border-bottom-width:2px;border-radi
     <button id="refreshTabDiagnostics" type="button">Prüfen</button>
   </div>
   <div class="tab-diagnostics" id="tabDiagnostics" aria-live="polite">Lade Status …</div>
+  <div class="diagnostic-controls">
+    <button id="captureTabDiagnostics" type="button">10 Sekunden messen</button>
+    <button id="copyTabDiagnostics" type="button" disabled>Bericht kopieren</button>
+  </div>
+  <div class="hint diagnostic-progress" id="diagnosticProgress" aria-live="polite">Erfasst nur technische Statusdaten, keine Chat-Inhalte.</div>
+  <textarea id="diagnosticReportText" rows="7" readonly hidden aria-label="Technischer Diagnosebericht"></textarea>
 </div>
 
 <div class="card">
@@ -175,6 +186,7 @@ kbd{padding:1px 4px;border:1px solid #3c4758;border-bottom-width:2px;border-radi
 </div>
 
 <div class="footer">No conversation content is stored in history.</div>
+<script src="status-diagnostics.js"></script>
 <script src="popup.js"></script>
 </body>
 </html>

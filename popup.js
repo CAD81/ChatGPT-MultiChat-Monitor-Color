@@ -41,15 +41,24 @@ const historySummary = document.getElementById("historySummary");
 
 const tabDiagnostics = document.getElementById("tabDiagnostics");
 const refreshTabDiagnostics = document.getElementById("refreshTabDiagnostics");
+const captureTabDiagnostics = document.getElementById("captureTabDiagnostics");
+const copyTabDiagnostics = document.getElementById("copyTabDiagnostics");
+const diagnosticProgress = document.getElementById("diagnosticProgress");
+const diagnosticReportText = document.getElementById("diagnosticReportText");
+const reportTools = globalThis.__chatgptMultichatDiagnosticReport;
 
 const STATUS_TRANSLATIONS = Object.freeze({
   working: "Arbeitet", finished: "Fertig", attention: "Eingriff nötig",
   error: "Fehler", retry: "Wiederholen", interrupted: "Unterbrochen",
-  draft: "Entwurf", pending: "Vorgemerkt", idle: "Inaktiv"
+  draft: "Entwurf", pending: "Vorgemerkt", idle: "Inaktiv",
+  unknown: "Unbekannt"
 });
 
+let lastDiagnosticReport = null;
+let diagnosticCaptureRunning = false;
+
 function statusName(state) {
-  return STATUS_TRANSLATIONS[state] || String(state || "Unbekannt");
+  return STATUS_TRANSLATIONS[state] || "Unbekannt";
 }
 
 function appendDiagnostic(label, value) {
@@ -63,58 +72,145 @@ function appendDiagnostic(label, value) {
   tabDiagnostics.appendChild(row);
 }
 
+async function diagnosticActiveTab() {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  return tab && /^https:\/\/chatgpt\.com\//.test(String(tab.url || "")) ? tab : null;
+}
+
+async function collectDiagnosticSample(tabId) {
+  const [local, monitor, tab] = await Promise.all([
+    chrome.tabs.sendMessage(tabId, { type: "monitor-get-status-diagnostics" }).catch(() => null),
+    chrome.runtime.sendMessage({ type: "monitor-get-snapshot" }).catch(() => null),
+    chrome.tabs.get(tabId).catch(() => null)
+  ]);
+  // No tab URL or title is included; the pure reporting helper only accepts
+  // one monitor record and the browser favicon URL to classify its *kind*.
+  const row = Array.isArray(monitor?.chats)
+    ? monitor.chats.find((item) => item.tabId === tabId) || null : null;
+  return reportTools.makeSample(
+    local || {},
+    row,
+    tab?.favIconUrl || "",
+    chrome.runtime.getManifest().version
+  );
+}
+
+function renderDiagnosticSample(sample) {
+  tabDiagnostics.replaceChildren();
+  appendDiagnostic("Erkennung", statusName(sample.localState));
+  appendDiagnostic("Monitor", statusName(sample.monitorState));
+  appendDiagnostic("Tab-Symbol", statusName(sample.iconState));
+  appendDiagnostic("Skriptversion", sample.scriptVersion);
+  appendDiagnostic("Stopp-Button erkannt", sample.stopButtonVisible ? "Ja" : "Nein");
+  appendDiagnostic("Arbeitsanzeige", sample.progressIndicatorVisible ? "Ja" : "Nein");
+  appendDiagnostic("Quadratische SVG-Symbole", String(sample.signals.squareStopCandidates));
+  appendDiagnostic("Erkannte Stopp-Schaltflächen", String(sample.signals.recognizedStopButtons));
+  appendDiagnostic("Letzte Auswertung", sample.lastEvaluationAgeMs + " ms");
+  appendDiagnostic("Vivaldi-Favicon-Quelle", sample.browserFaviconKind);
+  appendDiagnostic("Favicon im HTML zuletzt", sample.faviconLinkLast ? "Ja" : "Nein");
+  appendDiagnostic("Statuswechsel (letzte)", String(sample.transitions.length));
+  appendDiagnostic("Bewertung", reportTools.diagnosis(sample));
+}
+
+function newDiagnosticReport() {
+  return {
+    format: "chatgpt-multichat-status-diagnostic-v1",
+    createdAt: new Date().toISOString(),
+    // Report contains allow-listed technical flags and counters only.
+    samples: []
+  };
+}
+
 async function loadTabDiagnostics() {
+  if (diagnosticCaptureRunning) return;
   refreshTabDiagnostics.disabled = true;
-  tabDiagnostics.textContent = "Lade Status …";
+  diagnosticProgress.textContent = "Prüfe aktiven ChatGPT-Tab …";
   try {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab || !/^https:\/\/chatgpt\.com\//.test(String(tab.url || ""))) {
+    const tab = await diagnosticActiveTab();
+    if (!tab) {
       tabDiagnostics.textContent = "Bitte zuerst einen ChatGPT-Tab öffnen.";
       return;
     }
-
-    const [local, snapshot] = await Promise.all([
-      chrome.tabs.sendMessage(tab.id, { type: "monitor-get-status-diagnostics" })
-        .catch(() => null),
-      chrome.runtime.sendMessage({ type: "monitor-get-snapshot" })
-        .catch(() => null)
-    ]);
-    if (!local || typeof local.scriptVersion !== "string") {
-      tabDiagnostics.textContent = "Kein aktuelles Diagnoseskript im Tab. Nach dem Speichern ungesendeter Eingaben diesen ChatGPT-Tab manuell neu laden.";
-      return;
-    }
-
-    const row = Array.isArray(snapshot?.chats)
-      ? snapshot.chats.find((chat) => chat.tabId === tab.id)
-      : null;
-    const installedVersion = chrome.runtime.getManifest().version;
-
-    tabDiagnostics.replaceChildren();
-    appendDiagnostic("Erkennung", statusName(local.localState));
-    appendDiagnostic("Monitor", row ? statusName(row.state) : "Nicht verfügbar");
-    appendDiagnostic("Tab-Symbol", statusName(local.iconState));
-    appendDiagnostic("Stopp-Button sichtbar", local.stopButtonVisible ? "Ja" : "Nein");
-    appendDiagnostic("Arbeitsanzeige sichtbar", local.progressIndicatorVisible ? "Ja" : "Nein");
-    appendDiagnostic("Arbeitsstatus zuletzt gesehen", local.recentWorkingEvidence ? "Kürzlich" : "Nein");
-    appendDiagnostic("Skriptversion", local.scriptVersion);
-
-    if (local.scriptVersion !== installedVersion) {
-      appendDiagnostic("Hinweis", "Altes Tab-Skript – Tab nach Sicherung neu laden");
-    } else if (local.localState !== "working" &&
-        (local.stopButtonVisible || local.progressIndicatorVisible)) {
-      appendDiagnostic("Widerspruch", "Laufender Chat trotz inaktivem Status");
-    } else if (local.localState !== local.iconState &&
-        !(local.localState === "idle" && local.visualState === "pending")) {
-      appendDiagnostic("Widerspruch", "Favicon stimmt nicht mit Erkennung überein");
-    }
+    const sample = await collectDiagnosticSample(tab.id);
+    const report = newDiagnosticReport();
+    report.samples.push(sample);
+    lastDiagnosticReport = report;
+    copyTabDiagnostics.disabled = false;
+    diagnosticReportText.value = JSON.stringify(report, null, 2);
+    renderDiagnosticSample(sample);
+    diagnosticProgress.textContent = "Momentaufnahme fertig. Bei laufender Antwort: 10 Sekunden messen.";
   } catch {
-    tabDiagnostics.textContent = "Diagnose nicht verfügbar. ChatGPT-Tab öffnen und erneut prüfen.";
+    tabDiagnostics.textContent = "Diagnose fehlgeschlagen. Tab gegebenenfalls nach Sicherung neu laden.";
   } finally {
     refreshTabDiagnostics.disabled = false;
   }
 }
 
+async function recordTabDiagnostics() {
+  if (diagnosticCaptureRunning) return;
+  const tab = await diagnosticActiveTab().catch(() => null);
+  if (!tab) {
+    diagnosticProgress.textContent = "Bitte zuerst einen ChatGPT-Tab öffnen.";
+    return;
+  }
+
+  diagnosticCaptureRunning = true;
+  captureTabDiagnostics.disabled = true;
+  refreshTabDiagnostics.disabled = true;
+  copyTabDiagnostics.disabled = true;
+  const report = newDiagnosticReport();
+  lastDiagnosticReport = null;
+  diagnosticReportText.value = "";
+
+  try {
+    // Ten bounded samples from one fixed tab. This does not keep monitoring
+    // after the user closes the popup and writes nothing to browser storage.
+    for (let i = 0; i < 10; i += 1) {
+      diagnosticProgress.textContent = "Live-Messung: " + (i + 1) + " von 10";
+      const sample = await collectDiagnosticSample(tab.id);
+      report.samples.push(sample);
+      renderDiagnosticSample(sample);
+      if (i < 9) await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+    lastDiagnosticReport = report;
+    diagnosticReportText.value = JSON.stringify(report, null, 2);
+    copyTabDiagnostics.disabled = false;
+    const working = report.samples.filter((item) => item.localState === "working").length;
+    diagnosticProgress.textContent = "Messung fertig. " + working +
+      "/10 Proben als Arbeitet erkannt. Bericht kopieren und hier einfügen.";
+  } catch {
+    if (report.samples.length) {
+      lastDiagnosticReport = report;
+      diagnosticReportText.value = JSON.stringify(report, null, 2);
+      copyTabDiagnostics.disabled = false;
+    }
+    diagnosticProgress.textContent = "Messung unterbrochen. Vorhandene Proben können kopiert werden.";
+  } finally {
+    diagnosticCaptureRunning = false;
+    captureTabDiagnostics.disabled = false;
+    refreshTabDiagnostics.disabled = false;
+  }
+}
+
+async function copyDiagnosticReport() {
+  if (!lastDiagnosticReport) return;
+  const json = JSON.stringify(lastDiagnosticReport, null, 2);
+  try {
+    await navigator.clipboard.writeText(json);
+    diagnosticProgress.textContent = "Technischen Bericht kopiert. Du kannst ihn in ChatGPT einfügen.";
+  } catch {
+    // Copy fallback is still explicitly user initiated. Never upload or log.
+    diagnosticReportText.hidden = false;
+    diagnosticReportText.value = json;
+    diagnosticReportText.focus();
+    diagnosticReportText.select();
+    diagnosticProgress.textContent = "Kopieren nicht erlaubt. Bericht unten markieren und mit Strg+C kopieren.";
+  }
+}
+
 refreshTabDiagnostics.addEventListener("click", loadTabDiagnostics);
+captureTabDiagnostics.addEventListener("click", recordTabDiagnostics);
+copyTabDiagnostics.addEventListener("click", copyDiagnosticReport);
 
 const updateNotice = document.getElementById("updateNotice");
 const updateVersion = document.getElementById("updateVersion");
