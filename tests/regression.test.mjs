@@ -1201,7 +1201,7 @@ test("tab signal inventory exposes only counts and does not collect DOM text", (
   assert.equal(report.recognizedStopButtons, 1);
   assert.equal(report.visibleBusyIndicators, 0);
   assert.deepEqual(Object.keys(report).sort(),
-    ["visibleComposerButtons", "squareStopCandidates", "recognizedStopButtons", "visibleBusyIndicators"].sort());
+    ["visibleComposerButtons", "squareStopCandidates", "recognizedStopButtons", "visibleBusyIndicators","staleProneMarkers"].sort());
 });
 
 test("transitions and evaluation counters are bounded and no URLs/titles are in status report", () => {
@@ -1244,4 +1244,34 @@ test("completion remains visibly Finished on the focused ChatGPT tab", () => {
   assert.doesNotMatch(source, /chrome\.tabs\.onActivated\.addListener/);
   assert.doesNotMatch(source, /chrome\.windows\.onFocusChanged\.addListener/);
   assert.match(source, /async function acknowledgeFinishedTab/);
+});
+
+
+test("long recorder runs after popup closes, with a strict end time and a manual false-Working marker", () => {
+  const ui = fs.readFileSync(path.join(root, "popup.html"), "utf8");
+  for (const id of ["longDiagnosticStart","longDiagnosticStop","longDiagnosticMark",
+    "longDiagnosticCopy","longDiagnosticClear","longDiagnosticDuration"]) {
+    assert.match(ui, new RegExp('id="' + id + '"'));
+  }
+  assert.match(ui, /value="60" selected/);
+  assert.match(popupSource, /type:"monitor-diagnostic-mark"/);
+  assert.match(popupSource, /type:"monitor-diagnostic-get"/);
+  assert.match(popupSource, /navigator\.clipboard\.writeText\(text\)/);
+  assert.match(backgroundSource, /LONG_DIAG_MAX_EVENTS = 2500/);
+  assert.match(backgroundSource, /LONG_DIAG_ALLOWED_MINUTES = new Set\(\[15, 60, 120\]\)/);
+  assert.match(backgroundSource, /chrome\.storage\.session\.set\(\{\s*\[LONG_DIAG_KEY\]:/);
+  assert.match(contentSource, /sendLongDiagnosticSample\("heartbeat"\)/);
+  assert.match(contentSource, /type: "monitor-diagnostic-current"/);
+  assert.match(contentSource, /LONG_DIAGNOSTIC_SAMPLE_MS = 10000/);
+});
+
+test("long diagnostic sanitization stores only known signal fields; no page contents or URLs", () => {
+  const source = functionSource(backgroundSource, "longDiagSanitize");
+  assert.doesNotMatch(source, /location\.href|document\.title|outerHTML|innerText|textContent|tab\.url|tab\.title/);
+  assert.match(source, /longDiagState\(raw\.localState\)/);
+  assert.match(source, /longDiagState\(tab\?\.state\)/);
+  assert.match(source, /longDiagCount\(counts\.staleProneMarkers\)/);
+  assert.match(source, /kind === "user-finished"/);
+  assert.match(backgroundSource, /function withLongDiagLock/);
+  assert.match(backgroundSource, /recording\.events\.splice\(0, recording\.events\.length - LONG_DIAG_MAX_EVENTS\)/);
 });
