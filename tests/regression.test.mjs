@@ -940,7 +940,8 @@ test("unlabelled current ChatGPT composer Stop icon is recognized as Working", (
   assert.equal(isStopButton(modernStopFixture()), true);
   assert.equal(isStopButton(modernStopFixture({ withinComposer: false })), false);
   assert.equal(isStopButton(modernStopFixture({ type: "submit" })), true);
-  assert.equal(isStopButton(modernStopFixture({ icon: "M3 3H13V13H3Z" })), false);
+  assert.equal(isStopButton(modernStopFixture({ icon: "M3 3H13V13H3Z" })), true, "square path is a Stop icon");
+  assert.equal(isStopButton(modernStopFixture({ icon: "M3 8L12 3L12 13Z" })), false, "Send arrow is not Stop");
 });
 
 test("fast Working detection includes unlabeled composer controls", () => {
@@ -1087,6 +1088,10 @@ test("voice and dictation Stop controls do not generate a Working state", () => 
     }]; }
   };
   assert.equal(isStopButton(button), false);
+  for (const name of ["Stop recording", "Diktieren stoppen", "Aufnahme stoppen", "Stop voice"]) {
+    button.getAttribute = (key) => key === "aria-label" ? name : null;
+    assert.equal(isStopButton(button), false, name);
+  }
 });
 
 test("secondary visible generation indicator is an independent Working signal", () => {

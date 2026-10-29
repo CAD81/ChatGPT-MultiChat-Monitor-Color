@@ -255,7 +255,7 @@
       .toLowerCase();
 
     // Voice recording and screen-sharing controls must never imply a ChatGPT reply.
-    if (/\b(dictat|diktier|aufnahme|recording|record|microphone|audio|voice|sprache|bildschirm|screen.?shar|sharing|freigabe)\b/i.test(label)) return false;
+    if (/\b(dictat\w*|diktier\w*|aufnahme\w*|record\w*|microphone|audio|voice|sprach\w*|bildschirm\w*|screen.?shar\w*|sharing|freigabe\w*)\b/i.test(label)) return false;
     if (/^(stop|detener|stopp)$/.test(label)) return true;
     if (/(^|\s)(stop|cancel|detener|cancelar|stopp|stoppen|abbrechen|arreter)(\s|$)/i.test(label) &&
         /(generat|stream|response|respuesta|thinking|pensando|generacion|antwort|generier|erzeug|denkprozess|ausgabe)/i.test(label)) {
