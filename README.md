@@ -60,11 +60,12 @@ instead: `ChatGPT-MultiChat-Monitor-Color-vX.Y.Z.zip` is the ready-to-install
 extension ZIP. It has no enclosing folder and includes `VERSION.txt` and
 `manifest.json` at the ZIP root.
 
-A versioned release is built automatically after `main` passes GitHub
-Actions regression tests, **provided the manifest version is new**. Rebuilding
-the same version will not replace an already published release. On Linux,
-`bash scripts/build-release.sh` produces and validates the same ZIP and
-its SHA-256 checksum.
+A versioned release is published automatically **only** after an explicit
+`release/request.json` commit on `main`. ChatGPT/Codex performs tests outside
+GitHub Actions; regular code pushes and pull requests do not run GitHub tests.
+Existing releases are never replaced. See [release automation](docs/RELEASE_AUTOMATION.md).
+On Linux, `bash scripts/build-release.sh` packages and validates the ZIP
+and its SHA-256 checksum.
 
 ### Installing in Vivaldi
 
@@ -561,10 +562,10 @@ ChatGPT does not expose a public browser API for conversation generation state, 
 
 ## Development
 
-The regression workflow runs on pull requests and on updates to `main`,
-using Node.js 22. After enabling GitHub Actions for a fork, it can also be
-started manually via **Actions > Regression > Run workflow** once the workflow
-is available on the default branch.
+The former GitHub Actions regression workflow is archived in
+`docs/disabled-workflows/regression.yml` and is **not executable by GitHub**.
+Run the regression suite outside GitHub Actions before publishing. Only the
+explicit release publisher remains active.
 
 Run the same checks locally before merging:
 
@@ -581,9 +582,9 @@ Get-Content -Raw manifest.json | ConvertFrom-Json
 git diff --check
 ```
 
-An Actions success means the automated checks passed. It does not prove that
-Vivaldi's internal tab markup can be styled by the optional CSS; validate
-full-tab coloring in a real Vivaldi installation before claiming support.
+A successful GitHub Actions release confirms only packaging and publication;
+it does **not** prove that the regression tests passed. Validate the program
+outside GitHub Actions and verify Vivaldi styling in a real installation.
 
 ## Support development
 
