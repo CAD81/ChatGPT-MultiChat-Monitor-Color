@@ -3,6 +3,8 @@
   globalThis.__chatgptMultichatMonitorV2Loaded = true;
 
   const FINISH_CONFIRM_MS = 1400;
+  const WORKING_SIGNAL_GRACE_MS = 3500;
+  const CONTENT_SCRIPT_VERSION = "0.4.6";
   const RECENT_TTL_MS = 180000;
   const ATTENTION_TTL_MS = 30 * 60 * 1000;
   const ERROR_TTL_MS = 10 * 60 * 1000;
@@ -47,6 +49,7 @@
   let lastFallbackScanAt = 0;
   let lastErrorScanAt = 0;
   let lastWorkPhaseSeenAt = 0;
+  let lastWorkingEvidenceAt = 0;
   let activeRunStartedAt = null;
   let activeRunRestoreGraceUntil = 0;
   let bootstrapped = false;
@@ -239,23 +242,10 @@
   }
 
   function isStopButton(button) {
-    if (!button) return false;
-    if (button.getAttribute("data-testid") === "stop-button") return true;
-
-    // In newer ChatGPT composer variants the Stop button has no label/testid.
-    // Its verified square icon is only meaningful inside the prompt composer.
-    // Do not classify unrelated cancel, share, dictation or voice buttons.
-    if (button.getAttribute("type") === "button" &&
-        button.closest?.("form[data-chatgpt-composer]")) {
-      const stopIconPath = "M4.5 5.75C4.5 5.05964 5.05964 4.5 5.75 4.5H14.25C14.9404 4.5 15.5 5.05964 15.5 5.75V14.25C15.5 14.9404 14.9404 15.5 14.25 15.5H5.75C5.05964 15.5 4.5 14.9404 4.5 14.25V5.75Z";
-      const icons = button.querySelectorAll?.("svg.icon-primary-action > path[d], svg > path[d]") || [];
-      let scanned = 0;
-      for (const icon of icons) {
-        if (++scanned > 4) break;
-        const path = String(icon.getAttribute("d") || "").replace(/\s+/g, "");
-        if (path === stopIconPath.replace(/\s+/g, "")) return true;
-      }
-    }
+    if (!button || typeof button.getAttribute !== "function" || button.disabled) return false;
+    const testId = String(button.getAttribute("data-testid") ||
+      button.getAttribute("data-test-id") || "").trim().toLowerCase();
+    if (/^stop(?:-generating|-streaming)?-button$/.test(testId)) return true;
 
     const label = ((button.getAttribute("aria-label") || "") + " " +
       (button.getAttribute("title") || "") + " " + (button.textContent || ""))
@@ -263,17 +253,80 @@
       .replace(/[\u0300-\u036f]/g, "")
       .trim()
       .toLowerCase();
-    if (/^(stop|detener|stopp)$/i.test(label)) return true;
-    return /(^|\s)(stop|cancel|detener|cancelar|stopp|stoppen|abbrechen|arreter)(\s|$)/i.test(label) &&
-      /(generat|response|respuesta|thinking|pensando|generacion|antwort|generier|erzeug|denkprozess)/i.test(label);
+
+    // Voice recording and screen-sharing controls must never imply a ChatGPT reply.
+    if (/\b(dictat|diktier|aufnahme|recording|record|microphone|audio|voice|sprache|bildschirm|screen.?shar|sharing|freigabe)\b/i.test(label)) return false;
+    if (/^(stop|detener|stopp)$/.test(label)) return true;
+    if (/(^|\s)(stop|cancel|detener|cancelar|stopp|stoppen|abbrechen|arreter)(\s|$)/i.test(label) &&
+        /(generat|stream|response|respuesta|thinking|pensando|generacion|antwort|generier|erzeug|denkprozess|ausgabe)/i.test(label)) {
+      return true;
+    }
+
+    // Current ChatGPT sometimes renders an icon-only Stop control. The same
+    // type, SVG class, and button shape can appear in voice/recording controls,
+    // so only accept square geometry within a verified prompt composer.
+    const composer = button.closest?.("form[data-chatgpt-composer]");
+    const alternativeForm = composer ? null : button.closest?.("form");
+    const promptSelector = '#prompt-textarea, [data-composer-markdown], ' +
+      '[data-testid="composer-text-input"], textarea[name="prompt"]';
+    const verifiedComposer = !!composer ||
+      !!alternativeForm?.querySelector?.(promptSelector);
+    if (!verifiedComposer) return false;
+
+    const icons = button.querySelectorAll?.(
+      "svg.icon-primary-action > path[d], svg path[d], svg rect"
+    ) || [];
+    let scanned = 0;
+    const knownStopPath = "M4.5 5.75C4.5 5.05964 5.05964 4.5 5.75 4.5H14.25C14.9404 4.5 15.5 5.05964 15.5 5.75V14.25C15.5 14.9404 14.9404 15.5 14.25 15.5H5.75C5.05964 15.5 4.5 14.9404 4.5 14.25V5.75Z";
+    for (const icon of icons) {
+      if (++scanned > 8) break;
+      if (!icon || typeof icon.getAttribute !== "function") continue;
+      if (String(icon.tagName || "").toLowerCase() === "rect") {
+        const w = Number(icon.getAttribute("width"));
+        const h = Number(icon.getAttribute("height"));
+        if (w >= 5 && h >= 5 && w <= 16 && h <= 16 &&
+            Math.abs(w - h) <= 1 && Number(icon.getAttribute("rx") || 0) <= 3) {
+          return true;
+        }
+      }
+      const path = String(icon.getAttribute("d") || "").replace(/\s+/g, "");
+      if (path && path === knownStopPath.replace(/\s+/g, "")) return true;
+      // Geometric rectangular SVGs can be encoded with H/V or L commands;
+      // the common Send arrow has a different (nonrectangular) outline.
+      if (/^M[-+\d.,]+[hH][-+\d.]+[vV][-+\d.]+[hH][-+\d.]+[zZ]$/i.test(path)) {
+        return true;
+      }
+      if (/^M[-+\d.,]+(?:[lL][-+\d.,]+){3}[zZ]$/i.test(path)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   function directWorkingSignal() {
+    // Probe the full composer, not just labeled buttons. New ChatGPT builds
+    // sometimes omit the test id, label, and explicit type=button.
     const candidates = document.querySelectorAll(
-      'button[data-testid="stop-button"], [data-testid="stop-button"], button[aria-label], [role="button"][aria-label], form[data-chatgpt-composer] button[type="button"]'
+      'button[data-testid*="stop"], [role="button"][data-testid*="stop"], ' +
+      'button[data-test-id*="stop"], button[aria-label], [role="button"][aria-label], ' +
+      'button[title], form button, form[data-chatgpt-composer] button[type="button"], ' +
+      'button#composer-submit-button'
     );
     for (const candidate of candidates) {
       if (isVisible(candidate) && isStopButton(candidate)) return true;
+    }
+    return false;
+  }
+
+  function activeGenerationIndicator() {
+    // A secondary signal during tool / reasoning transitions, limited to
+    // explicitly active main-content indicators rather than static text.
+    const candidates = document.querySelectorAll(
+      'main [aria-busy="true"][data-testid], ' +
+      'main [data-testid*="generating" i], main [data-testid*="streaming" i]'
+    );
+    for (const candidate of candidates) {
+      if (isVisible(candidate)) return true;
     }
     return false;
   }
@@ -290,7 +343,7 @@
   }
 
   function detectWorking(allowFallback) {
-    if (directWorkingSignal()) return true;
+    if (directWorkingSignal() || activeGenerationIndicator()) return true;
     return allowFallback ? fallbackWorkingSignal() : false;
   }
 
@@ -419,6 +472,7 @@
 
   function setRestingState() {
     lastWorkPhaseSeenAt = 0;
+    lastWorkingEvidenceAt = 0;
     setState(promptHasDraft() ? "draft" : "idle", {
       startedAt: null,
       finishedAt: null,
@@ -641,6 +695,7 @@
       lastErrorScanAt = 0;
       lastFallbackScanAt = 0;
       lastWorkPhaseSeenAt = 0;
+      lastWorkingEvidenceAt = 0;
       setState("idle");
     }
 
@@ -650,6 +705,16 @@
     }
 
     const working = detectWorking(allowFallback);
+    if (working) lastWorkingEvidenceAt = Date.now();
+
+    if (!working && localState.state === "working" &&
+        !manualStopUntil && lastWorkingEvidenceAt > 0 &&
+        Date.now() - lastWorkingEvidenceAt < WORKING_SIGNAL_GRACE_MS) {
+      // Do not mark an active tool call as Done if the Stop control briefly
+      // disappears while the composer is being rebuilt.
+      clearFinishTimer();
+      return;
+    }
 
     if (!working &&
         localState.state === "working" &&
@@ -2563,10 +2628,33 @@
 
     if (isStopButton(target)) {
       manualStopUntil = Date.now() + 5000;
+      lastWorkingEvidenceAt = 0;
     }
   }, true);
 
+  function statusDiagnostics() {
+    const icon = document.getElementById("chatgpt-multichat-monitor-color-favicon");
+    const href = String(icon?.getAttribute("href") || "");
+    const match = href.match(/\/assets\/tab-status\/([a-z]+)\.svg(?:$|\?)/);
+    return {
+      scriptVersion: CONTENT_SCRIPT_VERSION,
+      initialized: bootstrapped,
+      localState: localState.state,
+      visualState: tabColorState(),
+      iconState: match ? match[1] : "missing",
+      stopButtonVisible: directWorkingSignal(),
+      progressIndicatorVisible: activeGenerationIndicator(),
+      recentWorkingEvidence: !!(lastWorkingEvidenceAt > 0 &&
+        Date.now() - lastWorkingEvidenceAt < WORKING_SIGNAL_GRACE_MS)
+    };
+  }
+
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message?.type === "monitor-get-status-diagnostics") {
+      sendResponse(statusDiagnostics());
+      return true;
+    }
+
     if (message?.type === "monitor-snapshot" && Array.isArray(message.chats)) {
       chats = message.chats;
       separators = Array.isArray(message.separators) ? message.separators : [];

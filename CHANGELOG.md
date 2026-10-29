@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 0.4.6 - 2026-10-29 (Working detection and diagnostics)
+
+- Widen generation Stop-button discovery beyond buttons with a recognized label/testid to include confirmed prompt-composer icon-only square controls, plus a visible active-generation indicator.
+- Keep a brief, bounded evidence grace period during tool/composer transitions so an ongoing response is not prematurely marked Done; manual Stop bypasses the grace.
+- Add a privacy-safe, tab-scoped popup diagnostic for the local detector state, monitor state, visible Stop / progress indicators, and actual favicon state.
+- Preserve existing tab background coloring and all permissions; no automatic tab reload.
+- Add regression fixtures for label-less variants, icon geometry, unrelated recording buttons, and transient missing controls.
+
+
 ## 0.4.5 - 2026-10-29 (Vivaldi tab background colors)
 
 - Improved the optional Vivaldi tab background CSS to handle favicon img srcset, src and inline style attributes.
