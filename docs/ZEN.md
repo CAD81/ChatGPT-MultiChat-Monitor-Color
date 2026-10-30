@@ -36,7 +36,7 @@ Diese Variante basiert auf dem bestehenden Monitor, verwendet aber die Firefox-W
 2. **Temporäres Add-on laden** auswählen.
 3. Die gerade erstellte Datei \`dist\ChatGPT-MultiChat-Monitor-Zen-v0.4.10.zip\` wählen. Falls Zen kein ZIP annimmt: die ZIP entpacken und darin \`manifest.json\` auswählen.
 4. \`https://chatgpt.com\` öffnen oder betroffene offene ChatGPT-Tabs **nach Sicherung ungesendeter Texte** mit F5 neu laden.
-5. Die Erweiterung über das Symbol der Erweiterungen / Einstellungen öffnen. Sie heißt **ChatGPT MultiChat Monitor Color (Zen)**.
+5. Die Erweiterung möglichst direkt über ihr Symbol in der Navigationsleiste öffnen. Wenn Zen es nicht anzeigt, im Erweiterungsmenü per Rechtsklick **An Symbolleiste anheften** wählen. Sie heißt **ChatGPT MultiChat Monitor Color (Zen)**.
 
 Ein nicht von Mozilla signiertes Add-on kann auf regulärem Firefox/Zen nur für die aktuelle Browsersitzung temporär geladen werden. **Nach einem Zen-Neustart muss es erneut geladen werden.** Für eine dauerhafte Installation ist später eine Mozilla-signierte XPI erforderlich. Keine Veröffentlichung oder Anmeldung bei Mozilla wurde vorgenommen.
 
