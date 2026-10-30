@@ -20,10 +20,10 @@
       " * Import from existing userChrome.css; do not replace other mods.\n" +
       " * State is signaled by a suffix on the ChatGPT tab title. */\n";
     for (const state of STATES) {
-      const selector = '#tabbrowser-tabs .tabbrowser-tab[label*="[GPTMM:' + state + ']"]';
+      const selector = '.tabbrowser-tab[label*="[GPTMM:' + state + ']"]';
       css += "\n" + selector + " { --gptmm-tab-color: " + palette[state] + "; }\n";
     }
-    const all = STATES.map(s => '#tabbrowser-tabs .tabbrowser-tab[label*="[GPTMM:' + s + ']"]').join(",\n");
+    const all = STATES.map(s => '.tabbrowser-tab[label*="[GPTMM:' + s + ']"]').join(",\n");
     css += "\n:is(" + all + ") > .tab-stack > .tab-background,\n" +
       ":is(" + all + ") .tab-background {\n" +
       "  background: var(--gptmm-tab-color) !important;\n" +
@@ -33,7 +33,7 @@
       ":is(" + all + ") .tab-content { color: #111827 !important; text-shadow: none !important; }\n";
     if (options.testOutline === true) {
       css += "\n/* CSS loading diagnostic (optional, not a state match). */\n" +
-        "#tabbrowser-tabs .tabbrowser-tab .tab-background { outline: 2px solid #00FFFF !important; }\n";
+        ".tabbrowser-tab .tab-background { outline: 2px solid #00FFFF !important; }\n";
     }
     return css;
   }
