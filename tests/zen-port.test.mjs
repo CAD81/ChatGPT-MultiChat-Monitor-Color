@@ -1,0 +1,115 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import test from "node:test";
+import vm from "node:vm";
+import { fileURLToPath } from "node:url";
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const load = p => fs.readFileSync(path.join(root, p), "utf8");
+
+function colorApi() {
+  const sandbox = {};
+  sandbox.globalThis = sandbox;
+  vm.runInNewContext(load("zen/zen-colors.js"), sandbox);
+  return sandbox.__chatgptVivaldiColors;
+}
+
+test("Zen uses Firefox MV3 scripts without Chromium offscreen permission", () => {
+  const manifest = JSON.parse(load("zen/manifest.json"));
+  assert.equal(manifest.manifest_version, 3);
+  assert.deepEqual(manifest.background.scripts, ["zen-audio.js","background.js"]);
+  assert.ok(!manifest.permissions.includes("offscreen"));
+  assert.deepEqual(manifest.content_scripts[0].js,
+    ["tab-status.js","zen-tab-title.js","content.js"]);
+  assert.ok(manifest.browser_specific_settings.gecko.id);
+  assert.deepEqual(manifest.browser_specific_settings.gecko.data_collection_permissions.required, ["none"]);
+  assert.equal(manifest.version, JSON.parse(load("manifest.json")).version);
+});
+
+test("Zen CSS labels and styles all non-idle states", () => {
+  const api = colorApi();
+  const css = api.generate(null, { version: "0.4.10" });
+  assert.equal(css, api.generate(null, { version: "0.4.99" }));
+  assert.equal(css, load("zen/userChrome.css"));
+  for (const state of api.STATES) {
+    assert.ok(css.includes('[label*="[GPTMM:' + state + ']"]'), state);
+    assert.ok(css.includes(api.DEFAULT_COLORS[state]), state);
+  }
+  assert.match(css, /\.tab-background/);
+  assert.doesNotMatch(css, /\[GPTMM:idle\]/);
+  assert.doesNotMatch(css, /outline: 2px solid #00FFFF/);
+});
+
+test("Zen palette normalization prevents arbitrary CSS injection", () => {
+  const api = colorApi();
+  const css = api.generate({ working:"red; } body {display:none", error:"#123ABC" });
+  assert.ok(css.includes(api.DEFAULT_COLORS.working));
+  assert.ok(css.includes("#123ABC"));
+  assert.doesNotMatch(css, /display:none/);
+  assert.match(api.generate(null,{testOutline:true}), /outline: 2px solid #00FFFF/);
+});
+
+test("Zen title bridge follows status and survives ChatGPT title changes", () => {
+  let status = "unknown";
+  let writes = 0, observer, interval;
+  const events = {};
+  const document = {
+    head: {}, documentElement: {}, _title:"Project A - ChatGPT",
+    get title() { return this._title; },
+    set title(value) { writes++; this._title = value; }
+  };
+  class Observer {
+    constructor(callback) { this.callback=callback; observer=this; }
+    observe() {}
+    disconnect() { this.disconnected=true; }
+  }
+  const sandbox = {
+    document, MutationObserver:Observer,
+    setInterval(callback) {interval=callback; return 12;},
+    clearInterval() {},
+    addEventListener(type,callback) {events[type]=callback;},
+    __chatgptMultiChatColorStatus:{diagnostics:()=>({state:status})}
+  };
+  sandbox.globalThis = sandbox;
+  vm.runInNewContext(load("zen/zen-tab-title.js"),sandbox);
+  const bridge=sandbox.__chatgptZenTabTitle;
+  assert.equal(document.title,"Project A - ChatGPT");
+  status="working"; interval();
+  assert.equal(document.title,"Project A - ChatGPT [GPTMM:working]");
+  assert.equal(bridge.cleanTitle(document.title),"Project A - ChatGPT");
+  const before=writes;
+  observer.callback();
+  assert.equal(writes,before,"no feedback loop on title mutation");
+  document.title="Renamed ChatGPT";
+  observer.callback();
+  assert.equal(document.title,"Renamed ChatGPT [GPTMM:working]");
+  status="finished"; interval();
+  assert.equal(document.title,"Renamed ChatGPT [GPTMM:finished]");
+  status="idle"; interval();
+  assert.equal(document.title,"Renamed ChatGPT");
+  status="error"; interval(); events.pagehide();
+  assert.equal(document.title,"Renamed ChatGPT");
+  bridge.dispose();
+  assert.equal(observer.disconnected,true);
+});
+
+test("Zen audio adapter handles packaged sounds and invalid inputs", async () => {
+  const played=[];
+  class AudioMock {
+    constructor(url) {this.url=url; this.listeners={};}
+    addEventListener(kind,cb) {this.listeners[kind]=cb;}
+    async play() {played.push({url:this.url,volume:this.volume});this.listeners.ended?.();}
+  }
+  const sandbox={Audio:AudioMock,browser:{runtime:{getURL:p=>"moz-extension://example/"+p}}};
+  sandbox.globalThis=sandbox;
+  vm.runInNewContext(load("zen/zen-audio.js"),sandbox);
+  const api=sandbox.__chatgptZenAudio;
+  assert.equal(await api.play("pop",0.5),true);
+  assert.equal(await api.play("off",0.5),false);
+  assert.equal(await api.play("../../evil",0.8),false);
+  assert.equal(await api.play("page-turn",0.9),true);
+  assert.equal(played.length,2);
+  assert.equal(played[0].volume,0.5);
+  assert.match(played[1].url,/sounds\/page-turn\.wav$/);
+});
