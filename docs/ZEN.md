@@ -18,7 +18,7 @@ Diese Variante basiert auf dem bestehenden Monitor, verwendet aber die Firefox-W
 1. In GitHub den Branch \`feature/zen-firefox-port\` auswählen.
 2. **Code → Download ZIP** wählen und das Quellcode-Archiv entpacken.
 3. Den entpackten Hauptordner öffnen. Darin müssen \`manifest.json\`, \`zen/\` und \`scripts/\` direkt liegen.
-4. In der Windows-Eingabeaufforderung in diesen Ordner wechseln und ausführen:
+4. **Einfachste Möglichkeit:** Datei `zen\\Build-Zen.bat` doppelt anklicken. Alternativ in der Windows-Eingabeaufforderung in den Hauptordner wechseln und ausführen:
 
    \`\`\`bat
    py scripts\build-zen.py
