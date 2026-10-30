@@ -30,6 +30,15 @@
 
   function sync() {
     if (disposed || suspended) return;
+    try {
+      if (typeof browser.runtime.id !== "string" || !browser.runtime.id) {
+        retire();
+        return;
+      }
+    } catch {
+      retire();
+      return;
+    }
     const state = requestedState();
     const original = cleanTitle(document.title);
     const next = state === "idle" ? original : original + " [GPTMM:" + state + "]";
@@ -40,6 +49,15 @@
   function restore() {
     const original = cleanTitle(document.title);
     if (document.title !== original) document.title = original;
+  }
+
+  function retire() {
+    if (disposed) return;
+    disposed = true;
+    testStartedAt = 0;
+    observer.disconnect();
+    clearInterval(timer);
+    restore();
   }
 
   function startColorSelfTest() {
@@ -76,13 +94,7 @@
       selfTestActive: testStartedAt > 0 &&
         Date.now() - testStartedAt < TEST_STEP_MS * TEST_STATES.length
     }),
-    dispose: () => {
-      disposed = true;
-      testStartedAt = 0;
-      observer.disconnect();
-      clearInterval(timer);
-      restore();
-    }
+    dispose: retire
   });
   sync();
 })();
