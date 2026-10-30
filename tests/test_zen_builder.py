@@ -82,7 +82,9 @@ files: ["tab-status.js", "content.js"]
 '''
                 (root / name).write_text(source)
             for name in builder.PLAIN_FILES:
-                (root / name).write_text("Vivaldi-CSS herunterladen")
+                contents = ("<body><div id=\"vivaldiColorRows\" class=\"vivaldi-colors\"></div>"
+                            "Vivaldi-CSS herunterladen</body>") if name == "popup.html" else "fixture"
+                (root / name).write_text(contents)
             for directory in builder.RESOURCE_DIRS:
                 (root / directory).mkdir(parents=True)
             for name in ("sounds/pop.wav","assets/tab-status/working.svg","assets/icons/icon16.png"):
@@ -102,6 +104,14 @@ files: ["tab-status.js", "content.js"]
                 self.assertIn("__chatgptZenAudio.play",bundle.read("background.js").decode())
                 self.assertNotIn("browser.offscreen",bundle.read("background.js").decode())
                 self.assertIn("__chatgptZenTabTitle.cleanTitle",bundle.read("content.js").decode())
+
+    def test_popup_inserts_color_self_test_once(self):
+        html = '<body><div id="vivaldiColorRows" class="vivaldi-colors"></div></body>'
+        result = builder.convert_popup_html(html)
+        self.assertEqual(result.count('id="zenTestTabColors"'), 1)
+        self.assertEqual(result.count('src="zen-popup-selftest.js"'), 1)
+        with self.assertRaisesRegex(ValueError, "insertion point"):
+            builder.convert_popup_html("<body></body>")
 
 
 if __name__ == "__main__":
