@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Prepare an experimental Zen/Firefox port with a separate Firefox MV3 manifest, event-page audio, promise-based `browser.*` APIs, an offline ZIP builder and checksum verification.
+- Add a reversible `[GPTMM:state]` title marker and Zen `userChrome.css` full-tab coloring independent of the browser favicon cache. Preserve the existing monitor, diagnostics, settings and Chromium build.
+- Add stable-name Zen CSS export, component/build regression tests and Windows installation instructions. Live Zen compatibility and Mozilla signing remain outstanding.
+
 - Handle an invalidated extension context after Vivaldi reload/update: guard the floating monitor's manifest-version lookup and all content-script preference writes against synchronous errors and rejected promises. Existing ChatGPT tabs still need a manual refresh after saving drafts; no automatic reload was added.
 - Correct the content-script diagnostics version to match the packaged 0.4.10 manifest and add regression coverage for invalidated runtime/storage APIs.
 
