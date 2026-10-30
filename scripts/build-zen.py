@@ -121,7 +121,14 @@ def convert_popup_html(source: str) -> str:
         "Wenn die türkise Umrandung erscheint, aber keine Statusfarben: Vivaldi lädt CSS, kann aber möglicherweise die Favicon-URLs nicht für einzelne Tabs erkennen.",
         "Wenn die türkise Umrandung erscheint, aber keine Statusfarben: Das Tab-Titel-Signal oder die Zen-Tabstruktur stimmt nicht."
     )
-    return source
+    const_marker = '<div id="vivaldiColorRows" class="vivaldi-colors"></div>'
+    if source.count(const_marker) != 1 or source.count("</body>") != 1:
+        raise ValueError("popup.html: missing or duplicate Zen UI insertion point")
+    source = source.replace(const_marker, const_marker + """
+<div class="hint">Tab-Farben unabhängig von ChatGPT testen. Nur die Titel-Farbkennung wird 12 Sekunden lang simuliert, der Monitorstatus bleibt unverändert.</div>
+<button id="zenTestTabColors" type="button">Tab-Farben testen: Gelb / Grün / Rot</button>
+<div class="hint" id="zenColorTestMessage" role="status" aria-live="polite">Test auf einem aktiven ChatGPT-Tab starten.</div>""")
+    return source.replace("</body>", '<script src="zen-popup-selftest.js"></script>\n</body>')
 
 
 def build(root: Path = ROOT, destination: Path | None = None) -> tuple[Path, Path]:
@@ -157,6 +164,7 @@ def build(root: Path = ROOT, destination: Path | None = None) -> tuple[Path, Pat
         for src, target in [
             ("zen/zen-tab-title.js", "zen-tab-title.js"),
             ("zen/zen-audio.js", "zen-audio.js"),
+            ("zen/zen-popup-selftest.js", "zen-popup-selftest.js"),
         ]:
             (stage / target).write_bytes((root / src).read_bytes())
         for directory in RESOURCE_DIRS:
@@ -174,11 +182,26 @@ def build(root: Path = ROOT, destination: Path | None = None) -> tuple[Path, Pat
             raise ValueError("Damaged ZIP entry")
         names = set(bundle.namelist())
         for name in ("manifest.json", "background.js", "zen-audio.js", "zen-tab-title.js",
-                     "popup.js", "sounds/pop.wav", "assets/tab-status/working.svg"):
+                     "zen-popup-selftest.js", "popup.js", "sounds/pop.wav",
+                     "assets/tab-status/working.svg"):
             if name not in names:
                 raise ValueError(f"Missing asset: {name}")
         if any(name.startswith((".github/", "tests/", "scripts/", ".git/")) for name in names):
             raise ValueError("Developer file found in installable ZIP")
+        html = bundle.read("popup.html").decode("utf-8")
+        if 'id="zenTestTabColors"' not in html or 'src="zen-popup-selftest.js"' not in html:
+            raise ValueError("Zen popup self-test is missing")
+        for script in zen_manifest["background"]["scripts"]:
+            if script not in names:
+                raise ValueError(f"Missing background script: {script}")
+        for entry in zen_manifest["content_scripts"]:
+            for script in entry["js"]:
+                if script not in names:
+                    raise ValueError(f"Missing content script: {script}")
+        for file in ("background.js", "content.js", "tab-status.js", "popup.js"):
+            source = bundle.read(file).decode("utf-8")
+            if "chrome.offscreen" in source or "chrome.runtime" in source:
+                raise ValueError(f"Unconverted Chromium API in {file}")
     shutil.copyfile(root / "zen/userChrome.css", css_target)
     for file in (archive, css_target):
         digest = hashlib.sha256(file.read_bytes()).hexdigest()
