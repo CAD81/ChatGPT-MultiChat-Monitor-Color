@@ -1,0 +1,89 @@
+{
+  "manifest_version": 3,
+  "name": "ChatGPT MultiChat Monitor Color (Zen)",
+  "version": "0.4.10",
+  "description": "ChatGPT multi-tab status monitor for Zen/Firefox with optional fully colored tabs via userChrome.css.",
+  "permissions": [
+    "storage",
+    "tabs",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://chatgpt.com/*"
+  ],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "{d90d06c6-6abd-4c63-8aad-6bd5999d3e10}",
+      "strict_min_version": "128.0",
+      "data_collection_permissions": {
+        "required": [
+          "none"
+        ]
+      }
+    }
+  },
+  "background": {
+    "scripts": [
+      "zen-audio.js",
+      "background.js"
+    ]
+  },
+  "icons": {
+    "16": "assets/icons/icon16.png",
+    "32": "assets/icons/icon32.png",
+    "48": "assets/icons/icon48.png",
+    "128": "assets/icons/icon128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://chatgpt.com/*"
+      ],
+      "js": [
+        "tab-status.js",
+        "zen-tab-title.js",
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "ChatGPT MultiChat Monitor Color (Zen)",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "assets/icons/icon16.png",
+      "32": "assets/icons/icon32.png",
+      "48": "assets/icons/icon48.png"
+    }
+  },
+  "commands": {
+    "toggle-monitor": {
+      "suggested_key": {
+        "default": "Alt+Shift+M"
+      },
+      "description": "Show or hide the monitor on the active ChatGPT tab"
+    },
+    "next-working-chat": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+1"
+      },
+      "description": "Focus the next working ChatGPT tab"
+    },
+    "next-attention-chat": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+2"
+      },
+      "description": "Focus the next attention or unread Done ChatGPT tab"
+    }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "assets/tab-status/*.svg"
+      ],
+      "matches": [
+        "https://chatgpt.com/*"
+      ]
+    }
+  ]
+}
