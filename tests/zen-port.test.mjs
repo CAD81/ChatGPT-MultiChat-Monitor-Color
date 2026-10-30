@@ -70,7 +70,7 @@ test("Zen title bridge follows status and survives ChatGPT title changes", () =>
     setInterval(callback) {interval=callback; return 12;},
     clearInterval() {},
     addEventListener(type,callback) {events[type]=callback;},
-    browser:{runtime:{onMessage:{addListener() {}}}},
+    browser:{runtime:{id:"test-addon@github",onMessage:{addListener() {}}}},
     __chatgptMultiChatColorStatus:{diagnostics:()=>({state:status})}
   };
   sandbox.globalThis = sandbox;
@@ -135,7 +135,7 @@ test("Zen color self-test cycles states and restores the real state", () => {
     setInterval(callback){interval=callback;return 42;},
     clearInterval(){},
     addEventListener(type,callback){listeners[type]=callback;},
-    browser:{runtime:{onMessage:{addListener(handler){savedHandler=handler;}}}},
+    browser:{runtime:{id:"test-addon@github",onMessage:{addListener(handler){savedHandler=handler;}}}},
     __chatgptMultiChatColorStatus:{diagnostics:()=>({state})}
   };
   sandbox.globalThis=sandbox;
@@ -173,4 +173,30 @@ test("Zen packaging includes the isolated tab color self-test", () => {
   assert.match(builder,/zenTestTabColors/);
   assert.match(popupSelftest,/monitor-zen-color-selftest/);
   assert.match(popupSelftest,/browser\.tabs\.sendMessage/);
+});
+
+
+test("Zen title bridge removes marker and timer after Firefox addon unload", () => {
+  let callback, cleared=false, disconnect=false;
+  const runtime={id:"test-addon@github",onMessage:{addListener() {}}};
+  const document={_title:"Task - ChatGPT",head:{},documentElement:{},
+    get title(){return this._title;},set title(value){this._title=value;}};
+  const sandbox={
+    document,browser:{runtime},
+    MutationObserver:class {constructor(){} observe(){} disconnect(){disconnect=true;}},
+    setInterval(fn){callback=fn;return 17;},
+    clearInterval(id){assert.equal(id,17);cleared=true;},
+    addEventListener(){},
+    __chatgptMultiChatColorStatus:{diagnostics:()=>({state:"working"})}
+  };
+  sandbox.globalThis=sandbox;
+  vm.runInNewContext(load("zen/zen-tab-title.js"),sandbox);
+  assert.match(document.title,/\[GPTMM:working\]$/);
+  runtime.id=undefined;
+  callback();
+  assert.equal(document.title,"Task - ChatGPT");
+  assert.equal(disconnect,true);
+  assert.equal(cleared,true);
+  callback();
+  assert.equal(document.title,"Task - ChatGPT");
 });
