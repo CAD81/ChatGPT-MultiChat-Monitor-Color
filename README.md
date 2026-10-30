@@ -4,6 +4,20 @@
 
 <h1 align="center">ChatGPT MultiChat Monitor Color</h1>
 
+### Zen Browser / Firefox (Windows)
+
+A separate experimental Zen build reuses the monitor and diagnostics, but uses a
+Firefox MV3 event page, promise-based `browser.*` APIs and status-tagged tab
+titles for optional full-tab coloring with `userChrome.css`.
+
+Build the **unsigned test ZIP** from the `feature/zen-firefox-port` branch with
+`py scripts\build-zen.py`. Installation, browser-CSS setup and current
+limitations are documented in [Zen setup](docs/ZEN.md).
+
+**Not yet signed or verified in live Zen.** The existing Chromium/Vivaldi build
+and its settings remain intact.
+
+
 <p align="center">
   Lightweight floating monitor for active ChatGPT conversations across browser tabs and windows.
 </p>
