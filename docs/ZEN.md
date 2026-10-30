@@ -59,7 +59,17 @@ Statusfarben: **Gelb** = arbeitet, **Grün** = fertig, **Rot** = Fehler; weitere
 
 Um eigene Farben zu verwenden, im Erweiterungs-Popup **Tab-Hintergründe (Zen)** öffnen, Farben wählen und **Zen-CSS herunterladen**. Die bestehende Datei im Profil-\`chrome\`-Ordner ersetzen, **nicht** die \`userChrome.css\` selbst. Anschließend Zen neu starten.
 
-## 4. Gezielter Funktionstest
+## 4. Farb-Selbsttest ohne laufende ChatGPT-Antwort
+
+1. Einen ChatGPT-Tab öffnen; die Zen-Erweiterung muss temporär geladen und die CSS installiert sein.
+2. Im Popup **Tab-Hintergründe (Zen)** aufklappen und **Tab-Farben testen: Gelb / Grün / Rot** anklicken.
+3. Der gewählte Tab soll nacheinander **4 Sekunden gelb**, **4 Sekunden grün** und **4 Sekunden rot** erscheinen.
+4. Nach 12 Sekunden wird die echte Statuskennzeichnung wiederhergestellt. Der Monitorstatus und die ChatGPT-Antwort werden durch diesen Selbsttest nicht verändert.
+5. Bleiben die Tab-Farben unverändert, zuerst das sichtbare Titel-Kennzeichen `[GPTMM:...]`, danach das Laden der `userChrome.css` prüfen. Ein sichtbarer Titelzusatz bei fehlender Farbe weist auf ein CSS-/Zen-Layoutproblem hin.
+
+**Der Selbsttest beweist nur die Tab-Farbzuordnung, nicht die korrekte Erkennung eines laufenden ChatGPT-Requests.**
+
+## 5. Gezielter Funktionstest
 
 1. Zwei ChatGPT-Tabs öffnen. In Tab A eine längere Frage stellen.
 2. Prüfen, ob an dessen Titel \`[GPTMM:working]\` erscheint und der komplette Eintrag gelb ist.
@@ -67,7 +77,7 @@ Um eigene Farben zu verwenden, im Erweiterungs-Popup **Tab-Hintergründe (Zen)**
 4. Falls die Titel-Markierung korrekt ist, aber keine Farbe erscheint: im Popup den **sichtbaren CSS-Ladetest** einschalten, CSS erneut exportieren, Datei austauschen und Zen neu starten. Türkise Umrandung bedeutet: CSS wird geladen, aber die Statuszuordnung braucht weitere Anpassung.
 5. Falls das Kennzeichen falsch oder gar nicht erscheint: Die Fehlersuche muss bei Statuserkennung / Inhaltsskripten beginnen. Dafür im Popup die 15-/60-/120-Minuten-Diagnose verwenden und nur die technische JSON-Datei teilen.
 
-## 5. Tests und Grenzen
+## 6. Tests und Grenzen
 
 Lokale Entwicklerprüfungen:
 
