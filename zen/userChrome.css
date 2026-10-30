@@ -2,57 +2,57 @@
  * Import from existing userChrome.css; do not replace other mods.
  * State is signaled by a suffix on the ChatGPT tab title. */
 
-#tabbrowser-tabs .tabbrowser-tab[label*="[GPTMM:working]"] { --gptmm-tab-color: #EAB308; }
+.tabbrowser-tab[label*="[GPTMM:working]"] { --gptmm-tab-color: #EAB308; }
 
-#tabbrowser-tabs .tabbrowser-tab[label*="[GPTMM:finished]"] { --gptmm-tab-color: #22C55E; }
+.tabbrowser-tab[label*="[GPTMM:finished]"] { --gptmm-tab-color: #22C55E; }
 
-#tabbrowser-tabs .tabbrowser-tab[label*="[GPTMM:attention]"] { --gptmm-tab-color: #F97316; }
+.tabbrowser-tab[label*="[GPTMM:attention]"] { --gptmm-tab-color: #F97316; }
 
-#tabbrowser-tabs .tabbrowser-tab[label*="[GPTMM:error]"] { --gptmm-tab-color: #EF4444; }
+.tabbrowser-tab[label*="[GPTMM:error]"] { --gptmm-tab-color: #EF4444; }
 
-#tabbrowser-tabs .tabbrowser-tab[label*="[GPTMM:retry]"] { --gptmm-tab-color: #38BDF8; }
+.tabbrowser-tab[label*="[GPTMM:retry]"] { --gptmm-tab-color: #38BDF8; }
 
-#tabbrowser-tabs .tabbrowser-tab[label*="[GPTMM:interrupted]"] { --gptmm-tab-color: #D97706; }
+.tabbrowser-tab[label*="[GPTMM:interrupted]"] { --gptmm-tab-color: #D97706; }
 
-#tabbrowser-tabs .tabbrowser-tab[label*="[GPTMM:draft]"] { --gptmm-tab-color: #A855F7; }
+.tabbrowser-tab[label*="[GPTMM:draft]"] { --gptmm-tab-color: #A855F7; }
 
-#tabbrowser-tabs .tabbrowser-tab[label*="[GPTMM:pending]"] { --gptmm-tab-color: #EC4899; }
+.tabbrowser-tab[label*="[GPTMM:pending]"] { --gptmm-tab-color: #EC4899; }
 
-:is(#tabbrowser-tabs .tabbrowser-tab[label*="[GPTMM:working]"],
-#tabbrowser-tabs .tabbrowser-tab[label*="[GPTMM:finished]"],
-#tabbrowser-tabs .tabbrowser-tab[label*="[GPTMM:attention]"],
-#tabbrowser-tabs .tabbrowser-tab[label*="[GPTMM:error]"],
-#tabbrowser-tabs .tabbrowser-tab[label*="[GPTMM:retry]"],
-#tabbrowser-tabs .tabbrowser-tab[label*="[GPTMM:interrupted]"],
-#tabbrowser-tabs .tabbrowser-tab[label*="[GPTMM:draft]"],
-#tabbrowser-tabs .tabbrowser-tab[label*="[GPTMM:pending]"]) > .tab-stack > .tab-background,
-:is(#tabbrowser-tabs .tabbrowser-tab[label*="[GPTMM:working]"],
-#tabbrowser-tabs .tabbrowser-tab[label*="[GPTMM:finished]"],
-#tabbrowser-tabs .tabbrowser-tab[label*="[GPTMM:attention]"],
-#tabbrowser-tabs .tabbrowser-tab[label*="[GPTMM:error]"],
-#tabbrowser-tabs .tabbrowser-tab[label*="[GPTMM:retry]"],
-#tabbrowser-tabs .tabbrowser-tab[label*="[GPTMM:interrupted]"],
-#tabbrowser-tabs .tabbrowser-tab[label*="[GPTMM:draft]"],
-#tabbrowser-tabs .tabbrowser-tab[label*="[GPTMM:pending]"]) .tab-background {
+:is(.tabbrowser-tab[label*="[GPTMM:working]"],
+.tabbrowser-tab[label*="[GPTMM:finished]"],
+.tabbrowser-tab[label*="[GPTMM:attention]"],
+.tabbrowser-tab[label*="[GPTMM:error]"],
+.tabbrowser-tab[label*="[GPTMM:retry]"],
+.tabbrowser-tab[label*="[GPTMM:interrupted]"],
+.tabbrowser-tab[label*="[GPTMM:draft]"],
+.tabbrowser-tab[label*="[GPTMM:pending]"]) > .tab-stack > .tab-background,
+:is(.tabbrowser-tab[label*="[GPTMM:working]"],
+.tabbrowser-tab[label*="[GPTMM:finished]"],
+.tabbrowser-tab[label*="[GPTMM:attention]"],
+.tabbrowser-tab[label*="[GPTMM:error]"],
+.tabbrowser-tab[label*="[GPTMM:retry]"],
+.tabbrowser-tab[label*="[GPTMM:interrupted]"],
+.tabbrowser-tab[label*="[GPTMM:draft]"],
+.tabbrowser-tab[label*="[GPTMM:pending]"]) .tab-background {
   background: var(--gptmm-tab-color) !important;
   background-image: none !important;
   opacity: 1 !important;
   box-shadow: none !important;
 }
 
-:is(#tabbrowser-tabs .tabbrowser-tab[label*="[GPTMM:working]"],
-#tabbrowser-tabs .tabbrowser-tab[label*="[GPTMM:finished]"],
-#tabbrowser-tabs .tabbrowser-tab[label*="[GPTMM:attention]"],
-#tabbrowser-tabs .tabbrowser-tab[label*="[GPTMM:error]"],
-#tabbrowser-tabs .tabbrowser-tab[label*="[GPTMM:retry]"],
-#tabbrowser-tabs .tabbrowser-tab[label*="[GPTMM:interrupted]"],
-#tabbrowser-tabs .tabbrowser-tab[label*="[GPTMM:draft]"],
-#tabbrowser-tabs .tabbrowser-tab[label*="[GPTMM:pending]"]) .tab-label,
-:is(#tabbrowser-tabs .tabbrowser-tab[label*="[GPTMM:working]"],
-#tabbrowser-tabs .tabbrowser-tab[label*="[GPTMM:finished]"],
-#tabbrowser-tabs .tabbrowser-tab[label*="[GPTMM:attention]"],
-#tabbrowser-tabs .tabbrowser-tab[label*="[GPTMM:error]"],
-#tabbrowser-tabs .tabbrowser-tab[label*="[GPTMM:retry]"],
-#tabbrowser-tabs .tabbrowser-tab[label*="[GPTMM:interrupted]"],
-#tabbrowser-tabs .tabbrowser-tab[label*="[GPTMM:draft]"],
-#tabbrowser-tabs .tabbrowser-tab[label*="[GPTMM:pending]"]) .tab-content { color: #111827 !important; text-shadow: none !important; }
+:is(.tabbrowser-tab[label*="[GPTMM:working]"],
+.tabbrowser-tab[label*="[GPTMM:finished]"],
+.tabbrowser-tab[label*="[GPTMM:attention]"],
+.tabbrowser-tab[label*="[GPTMM:error]"],
+.tabbrowser-tab[label*="[GPTMM:retry]"],
+.tabbrowser-tab[label*="[GPTMM:interrupted]"],
+.tabbrowser-tab[label*="[GPTMM:draft]"],
+.tabbrowser-tab[label*="[GPTMM:pending]"]) .tab-label,
+:is(.tabbrowser-tab[label*="[GPTMM:working]"],
+.tabbrowser-tab[label*="[GPTMM:finished]"],
+.tabbrowser-tab[label*="[GPTMM:attention]"],
+.tabbrowser-tab[label*="[GPTMM:error]"],
+.tabbrowser-tab[label*="[GPTMM:retry]"],
+.tabbrowser-tab[label*="[GPTMM:interrupted]"],
+.tabbrowser-tab[label*="[GPTMM:draft]"],
+.tabbrowser-tab[label*="[GPTMM:pending]"]) .tab-content { color: #111827 !important; text-shadow: none !important; }
