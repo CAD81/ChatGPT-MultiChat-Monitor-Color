@@ -64,7 +64,7 @@ Um eigene Farben zu verwenden, im Erweiterungs-Popup **Tab-Hintergründe (Zen)**
 1. Einen ChatGPT-Tab öffnen; die Zen-Erweiterung muss temporär geladen und die CSS installiert sein.
 2. Im Popup **Tab-Hintergründe (Zen)** aufklappen und **Tab-Farben testen: Gelb / Grün / Rot** anklicken.
 3. Der gewählte Tab soll nacheinander **4 Sekunden gelb**, **4 Sekunden grün** und **4 Sekunden rot** erscheinen.
-4. Nach 12 Sekunden wird die echte Statuskennzeichnung wiederhergestellt. Der Monitorstatus und die ChatGPT-Antwort werden durch diesen Selbsttest nicht verändert.
+4. Nach 12 Sekunden wird die echte Statuskennzeichnung wiederhergestellt. Wird die Erweiterung entladen, entfernt die Zen-Titelbrücke ihre Kennzeichnung spätestens beim nächsten Prüfdurchlauf. Der Monitorstatus und die ChatGPT-Antwort werden durch diesen Selbsttest nicht verändert.
 5. Bleiben die Tab-Farben unverändert, zuerst das sichtbare Titel-Kennzeichen `[GPTMM:...]`, danach das Laden der `userChrome.css` prüfen. Ein sichtbarer Titelzusatz bei fehlender Farbe weist auf ein CSS-/Zen-Layoutproblem hin.
 
 **Der Selbsttest beweist nur die Tab-Farbzuordnung, nicht die korrekte Erkennung eines laufenden ChatGPT-Requests.**
