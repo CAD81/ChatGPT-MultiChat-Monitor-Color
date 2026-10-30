@@ -97,7 +97,9 @@ def convert_javascript(path: str, source: str) -> str:
             '    testOutline: vivaldiTestOutline.checked,\n  });',
             '    testOutline: vivaldiTestOutline.checked\n  });',
         )
-    return re.sub(r"\bchrome\.", "browser.", source)
+    source = re.sub(r"\bchrome\.", "browser.", source)
+    # Firefox-specific guard for the favicon module.
+    return source.replace("globalThis.chrome?.runtime?.getURL", "globalThis.browser?.runtime?.getURL")
 
 
 def convert_popup_html(source: str) -> str:
