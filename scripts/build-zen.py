@@ -77,12 +77,16 @@ def convert_javascript(path: str, source: str) -> str:
             path, n=2,
         )
     elif path == "popup.js":
-        source = must_replace(
-            source,
+        # Accept both current main and PR #12's stable Vivaldi CSS export.
+        previous = (
             'link.download = "ChatGPT-MultiChat-Monitor-Color-v" +\n'
-            '    chrome.runtime.getManifest().version + "-vivaldi-custom.css";',
-            'link.download = "chatgpt-multichat-monitor-color.css";', path,
+            '    chrome.runtime.getManifest().version + "-vivaldi-custom.css";'
         )
+        stable = 'link.download = "chatgpt-multichat-monitor-color.css";'
+        if previous in source:
+            source = must_replace(source, previous, stable, path)
+        elif stable not in source:
+            raise ValueError("popup.js: unknown CSS download filename expression")
         source = source.replace(
             "CSS heruntergeladen. Die vorherige Datei im VivaldiCSS-Ordner ersetzen und Vivaldi neu starten.",
             "Zen-CSS gespeichert. Im Profilordner chrome/ ablegen, in userChrome.css importieren, Zen neu starten."
