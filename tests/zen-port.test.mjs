@@ -23,6 +23,7 @@ test("Zen uses Firefox MV3 scripts without Chromium offscreen permission", () =>
   assert.deepEqual(manifest.content_scripts[0].js,
     ["tab-status.js","zen-tab-title.js","content.js"]);
   assert.ok(manifest.browser_specific_settings.gecko.id);
+  assert.equal(manifest.action.default_area, "navbar");
   assert.deepEqual(manifest.browser_specific_settings.gecko.data_collection_permissions.required, ["none"]);
   assert.equal(manifest.version, JSON.parse(load("manifest.json")).version);
 });
