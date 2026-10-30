@@ -69,6 +69,7 @@ test("Zen title bridge follows status and survives ChatGPT title changes", () =>
     setInterval(callback) {interval=callback; return 12;},
     clearInterval() {},
     addEventListener(type,callback) {events[type]=callback;},
+    browser:{runtime:{onMessage:{addListener() {}}}},
     __chatgptMultiChatColorStatus:{diagnostics:()=>({state:status})}
   };
   sandbox.globalThis = sandbox;
@@ -112,4 +113,63 @@ test("Zen audio adapter handles packaged sounds and invalid inputs", async () =>
   assert.equal(played.length,2);
   assert.equal(played[0].volume,0.5);
   assert.match(played[1].url,/sounds\/page-turn\.wav$/);
+});
+
+
+test("Zen color self-test cycles states and restores the real state", () => {
+  let now=1000, state="finished", interval, observer, savedHandler;
+  let writes=0;
+  const doc={head:{},documentElement:{},_title:"First - ChatGPT",
+    get title(){return this._title;},
+    set title(value){writes++;this._title=value;}};
+  const listeners={};
+  const sandbox={
+    document:doc,
+    Date:{now:()=>now},
+    MutationObserver:class {
+      constructor(callback){observer=this;this.callback=callback;}
+      observe(){}
+      disconnect(){this.disconnected=true;}
+    },
+    setInterval(callback){interval=callback;return 42;},
+    clearInterval(){},
+    addEventListener(type,callback){listeners[type]=callback;},
+    browser:{runtime:{onMessage:{addListener(handler){savedHandler=handler;}}}},
+    __chatgptMultiChatColorStatus:{diagnostics:()=>({state})}
+  };
+  sandbox.globalThis=sandbox;
+  vm.runInNewContext(load("zen/zen-tab-title.js"),sandbox);
+  const bridge=sandbox.__chatgptZenTabTitle;
+  assert.equal(doc.title,"First - ChatGPT [GPTMM:finished]");
+  let response;
+  assert.equal(savedHandler({type:"monitor-zen-color-selftest"},null,v=>{response=v;}),true);
+  assert.equal(response.ok,true);
+  assert.equal(response.durationMs,12000);
+  assert.equal(doc.title,"First - ChatGPT [GPTMM:working]");
+  now=5001;interval();
+  assert.equal(doc.title,"First - ChatGPT [GPTMM:finished]");
+  now=9001;interval();
+  assert.equal(doc.title,"First - ChatGPT [GPTMM:error]");
+  now=13001;interval();
+  assert.equal(doc.title,"First - ChatGPT [GPTMM:finished]");
+  assert.equal(bridge.diagnostics().selfTestActive,false);
+  assert.ok(writes <= 6,"no excessive title writes");
+  listeners.pagehide();
+  assert.equal(doc.title,"First - ChatGPT");
+  now=14000;interval();
+  assert.equal(doc.title,"First - ChatGPT","no re-tagging after pagehide");
+  listeners.pageshow();
+  assert.equal(doc.title,"First - ChatGPT [GPTMM:finished]");
+  bridge.dispose();
+  assert.equal(doc.title,"First - ChatGPT");
+  assert.ok(observer.disconnected);
+});
+
+test("Zen packaging includes the isolated tab color self-test", () => {
+  const builder=load("scripts/build-zen.py");
+  const popupSelftest=load("zen/zen-popup-selftest.js");
+  assert.match(builder,/zen-popup-selftest\.js/);
+  assert.match(builder,/zenTestTabColors/);
+  assert.match(popupSelftest,/monitor-zen-color-selftest/);
+  assert.match(popupSelftest,/browser\.tabs\.sendMessage/);
 });
