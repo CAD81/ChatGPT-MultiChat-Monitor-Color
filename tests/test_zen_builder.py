@@ -58,7 +58,7 @@ files: ["tab-status.js", "content.js"]
             root = pathlib.Path(tmp)
             (root / "zen").mkdir()
             (root / "manifest.json").write_text(json.dumps({"version":"0.4.10"}))
-            for name in ("manifest.json","zen-audio.js","zen-tab-title.js","zen-colors.js","userChrome.css"):
+            for name in ("manifest.json","zen-audio.js","zen-tab-title.js","zen-popup-selftest.js","zen-colors.js","userChrome.css"):
                 (root / "zen" / name).write_bytes((ROOT / "zen" / name).read_bytes())
             for name in builder.JS_FILES:
                 source = "const api = chrome.runtime.id;"
