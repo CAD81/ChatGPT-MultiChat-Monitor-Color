@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add a 12-second, popup-triggered Zen tab-color self-test (yellow/green/red), isolated from live monitoring status, and restore the original tab title on pagehide and after test completion. Cover the timer and popup injection in regression tests.
+
 - Prepare an experimental Zen/Firefox port with a separate Firefox MV3 manifest, event-page audio, promise-based `browser.*` APIs, an offline ZIP builder and checksum verification.
 - Add a reversible `[GPTMM:state]` title marker and Zen `userChrome.css` full-tab coloring independent of the browser favicon cache. Preserve the existing monitor, diagnostics, settings and Chromium build.
 - Add stable-name Zen CSS export, component/build regression tests and Windows installation instructions. Live Zen compatibility and Mozilla signing remain outstanding.
